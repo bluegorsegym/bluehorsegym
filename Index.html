@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Blue Horse Gym</title>
+<style>
+:root{--bg:#f4f6fb;--tx:#14213d;--mu:#667085;--cd:#fff;--bd:#d6dbe6;--ac:#1d4ed8;--rd:#d92d20;--go:#c8921a}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1424;--tx:#e8ecf5;--mu:#97a0b3;--cd:#161f35;--bd:#2a3550;--ac:#6b93ff;--rd:#ff7b72;--go:#f0b84a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#app{max-width:640px;margin:0 auto;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(24px + env(safe-area-inset-bottom,0px))}
+h1{font:800 24px/1.1 Georgia,"Times New Roman",serif;margin:8px 0 14px;letter-spacing:-.3px}
+h1 em{color:var(--go);font-style:normal}
+.cd{background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+input{width:100%;padding:10px;margin:4px 0 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+input:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button,a.bt{display:inline-block;padding:10px 14px;border:1px solid var(--ac);border-radius:8px;background:var(--ac);color:#fff;font:inherit;font-weight:600;margin:3px 0;text-decoration:none;cursor:pointer}
+button.s{background:transparent;color:var(--ac)}
+button.x{background:transparent;color:var(--rd);border-color:var(--rd)}
+.mu{color:var(--mu);font-size:14px}
+label{font-size:14px;color:var(--mu)}
+.row{display:flex;gap:6px;align-items:center}.row input{margin:0}
+.ex{display:flex;gap:4px;align-items:center}.ex input{margin:2px 0}.ex .sm{width:60px;flex:none}
+.ex2{padding:8px 0;border-top:1px solid var(--bd)}.ex2 .row{margin-top:6px}
+.b{padding:8px 12px;border-radius:14px;margin:4px 0;max-width:85%;width:fit-content}
+.me{background:var(--ac);color:#fff;margin-left:auto}.ot{background:var(--bd)}
+#ch{max-height:240px;overflow:auto;margin-bottom:8px}
+#tt{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:20px;display:none;z-index:9}
+</style></head><body>
+<div id="app"><p class="mu">Cargando…</p></div><div id="tt"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+firebase.initializeApp({apiKey:"AIzaSyAHeWt3yOcpGx8UacxHr5HJPlN7FA2feQQ",authDomain:"bluehorse-gym.firebaseapp.com",projectId:"bluehorse-gym",storageBucket:"bluehorse-gym.firebasestorage.app",messagingSenderId:"240476420168",appId:"1:240476420168:web:133e368e1930e0daca807d"});
+const auth=firebase.auth(),db=firebase.firestore(),$=s=>document.querySelector(s),app=$("#app");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nz=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+let U=[],cur={},unl=null,delArm=null,logs=[],msgs=[];
+const clr=()=>{U.forEach(u=>u());U=[]},sub=u=>U.push(u);
+function toast(m){const t=$("#tt");t.textContent=m;t.style.display="block";setTimeout(()=>t.style.display="none",2500)}
+const hashId=()=>(location.hash.match(/^#c=([\w-]+)/)||[])[1];
+const isCoach=u=>u&&!u.isAnonymous;
+function route(u){clr();const id=hashId();
+ if(id){if(!u)auth.signInAnonymously().catch(e=>app.innerHTML="<p>No se pudo conectar: "+esc(e.message)+"</p>");else clientView(id)}
+ else if(isCoach(u))coachHome();else login()}
+auth.onAuthStateChanged(route);window.onhashchange=()=>route(auth.currentUser);
+
+function login(){app.onclick=app.oninput=null;
+ app.innerHTML=`<h1>Blue Horse <em>Gym</em></h1><div class="cd"><b>Ingreso del profe</b><input id="em" type="email" placeholder="Email" autocomplete="username"><input id="pw" type="password" placeholder="Contraseña" autocomplete="current-password"><button id="go">Entrar</button><div id="er" class="mu" style="color:var(--rd)"></div></div>`;
+ $("#go").onclick=()=>auth.signInWithEmailAndPassword($("#em").value.trim(),$("#pw").value).catch(()=>$("#er").textContent="Email o contraseña incorrectos.")}
+
+function coachHome(){clr();app.onclick=app.oninput=null;let cl=[];
+ app.innerHTML=`<h1>Mis clientes</h1><button id="nw">+ Nuevo cliente</button> <button class="s" id="bp">Copia de seguridad (CSV)</button><input id="sq" placeholder="Buscar cliente" autocomplete="off" style="margin-top:10px"><div id="ls"></div><button class="s" id="out">Salir</button>`;
+ const paint=()=>{const v=nz($("#sq").value);const a=cl.filter(c=>!v||nz([c.nombre,c.objetivo,c.cel].join(" ")).includes(v));
+  $("#ls").innerHTML=a.map(c=>{const old=(Date.now()-(c.upd||c.desde||0))/864e5>=60;return `<div class="cd" data-o="${esc(c.id)}" style="cursor:pointer"><b>${esc(c.nombre||"(sin nombre)")}</b> ${old?"⏰ renovar rutina":""}<div class="mu">${esc(c.objetivo||"")}</div></div>`}).join("")||'<p class="mu">Todavía no hay clientes. Tocá "Nuevo cliente".</p>'};
+ sub(db.collection("clients").orderBy("nombre").onSnapshot(s=>{cl=s.docs.map(d=>d.data());paint()},e=>toast(e.message)));
+ $("#sq").oninput=paint;
+ $("#nw").onclick=()=>editor(db.collection("clients").doc().id);
+ $("#out").onclick=()=>auth.signOut();
+ $("#bp").onclick=async()=>{const q=s=>'"'+String(s??"").replace(/"/g,'""')+'"';const rows=["Cliente,Fecha,Ejercicio,Kg,Reps"];
+  for(const c of cl){const s=await db.collection("clients").doc(c.id).collection("logs").orderBy("t").get();s.forEach(d=>{const l=d.data();rows.push([c.nombre,new Date(l.t).toISOString().slice(0,10),l.n,l.kg,l.reps].map(q).join(","))})}
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+rows.join("\n")],{type:"text/csv"}));a.download="bluehorse-backup.csv";a.click()};
+ app.onclick=e=>{const c=e.target.closest("[data-o]");if(c)editor(c.dataset.o)}}
+
+function editor(id){clr();app.onclick=app.oninput=null;logs=[];msgs=[];const ref=db.collection("clients").doc(id);
+ ref.get().then(s=>{cur=s.exists?s.data():{nombre:"",cel:"",objetivo:"",pin:"",days:[{t:"Día 1",ex:[]}],desde:Date.now()};cur.id=id;
+  sub(ref.collection("logs").orderBy("t","desc").limit(30).onSnapshot(s=>{logs=s.docs.map(d=>d.data());paintLg()},()=>{}));
+  sub(ref.collection("msgs").orderBy("t").onSnapshot(s=>{msgs=s.docs.map(d=>d.data());paintM("p")},()=>{}));
+  draw(ref)}).catch(e=>toast(e.message))}
+function paintLg(){const el=$("#lg");if(el)el.innerHTML=logs.map(l=>`<div class="mu">${new Date(l.t).toLocaleDateString("es-AR")} · ${esc(l.n)}: ${esc(l.kg||"-")} kg × ${esc(l.reps||"-")}</div>`).join("")||'<div class="mu">Todavía no cargó pesos.</div>'}
+function paintM(me){const el=$("#ch");if(!el)return;el.innerHTML=msgs.map(m=>`<div class="b ${m.from===me?"me":"ot"}">${esc(m.tx)}</div>`).join("");el.scrollTop=el.scrollHeight}
+function draw(ref){
+ app.innerHTML=`<button class="s" id="bk">← Clientes</button><h1>${esc(cur.nombre||"Cliente nuevo")}</h1>
+ <div class="cd">${[["nombre","Nombre"],["cel","Celular con código de país (ej. 5493415551234)"],["objetivo","Objetivo"],["pin","PIN del alumno (opcional)"]].map(([k,l])=>`<label>${l}</label><input data-p="${k}" value="${esc(cur[k])}">`).join("")}</div>
+ ${cur.days.map((d,i)=>`<div class="cd"><input data-dt="${i}" value="${esc(d.t)}" style="font-weight:700">${d.ex.map((x,j)=>`<div class="ex"><input data-d="${i}" data-e="${j}" data-f="n" placeholder="Ejercicio" value="${esc(x.n)}"><input class="sm" data-d="${i}" data-e="${j}" data-f="s" placeholder="Ser." value="${esc(x.s)}"><input class="sm" data-d="${i}" data-e="${j}" data-f="r" placeholder="Rep." value="${esc(x.r)}"><button class="x" data-rx="${i},${j}">✕</button></div>`).join("")}<button class="s" data-ax="${i}">+ Ejercicio</button> <button class="x" data-rd="${i}">Quitar día</button></div>`).join("")}
+ <button class="s" id="ad">+ Día</button>
+ <div style="margin:12px 0"><button id="sv">Guardar</button> <button class="s" id="sh">Enviar al alumno</button></div><div id="shp"></div>
+ <div class="cd"><b>Seguimiento</b><div id="lg"></div></div>
+ <div class="cd"><b>Chat</b><div id="ch"></div><div class="row"><input id="mt" placeholder="Mensaje"><button id="ms">Enviar</button></div></div>
+ <button class="x" id="dl">Eliminar cliente</button>`;
+ paintLg();paintM("p");
+ app.oninput=e=>{const t=e.target,d=t.dataset;if(d.p)cur[d.p]=t.value;else if(d.dt!==undefined)cur.days[d.dt].t=t.value;else if(d.f)cur.days[d.d].ex[d.e][d.f]=t.value};
+ app.onclick=async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
+  try{
+  if(b.id==="bk")return coachHome();
+  if(d.ax!==undefined){cur.days[d.ax].ex.push({n:"",s:"",r:""});return draw(ref)}
+  if(d.rx){const[i,j]=d.rx.split(",");cur.days[i].ex.splice(j,1);return draw(ref)}
+  if(d.rd!==undefined){cur.days.splice(d.rd,1);return draw(ref)}
+  if(b.id==="ad"){cur.days.push({t:"Día "+(cur.days.length+1),ex:[]});return draw(ref)}
+  if(b.id==="sv"){await ref.set({...cur,upd:Date.now()});toast("✔ Guardado")}
+  if(b.id==="sh"){await ref.set({...cur,upd:Date.now()});const link=location.href.split("#")[0]+"#c="+cur.id,msg=`Hola ${cur.nombre}! Tu rutina está acá: ${link}`+(cur.pin?` (PIN: ${cur.pin})`:"");
+   $("#shp").innerHTML=`<div class="cd"><a class="bt" target="_blank" rel="noopener" href="https://wa.me/${(cur.cel||"").replace(/\D/g,"")}?text=${encodeURIComponent(msg)}">Enviar por WhatsApp</a> <button class="s" id="cp">Copiar mensaje</button></div>`;
+   $("#cp").onclick=()=>navigator.clipboard.writeText(msg).then(()=>toast("Copiado"))}
+  if(b.id==="ms"){const v=$("#mt").value.trim();if(v){$("#mt").value="";await ref.collection("msgs").add({from:"p",tx:v,t:Date.now()})}}
+  if(b.id==="dl"){if(delArm!==cur.id){delArm=cur.id;b.textContent="¿Seguro? Tocá otra vez";setTimeout(()=>{delArm=null;b.textContent="Eliminar cliente"},6000);return}
+   delArm=null;const bt=db.batch();for(const n of["logs","msgs"])(await ref.collection(n).get()).forEach(x=>bt.delete(x.ref));bt.delete(ref);await bt.commit();coachHome()}
+  }catch(err){toast("Error: "+err.message)}}}
+
+function clientView(id){clr();app.onclick=app.oninput=null;logs=[];msgs=[];const ref=db.collection("clients").doc(id);
+ sub(ref.onSnapshot(s=>{if(!s.exists){app.innerHTML="<p>Este link no es válido. Pedile uno nuevo a tu profe.</p>";return}
+  cur=s.data();cur.id=id;if(cur.pin&&unl!==id&&!isCoach(auth.currentUser))pinView();else cview(ref)},e=>app.innerHTML="<p>No se pudo cargar: "+esc(e.message)+"</p>"));
+ sub(ref.collection("logs").orderBy("t","desc").limit(300).onSnapshot(s=>{logs=s.docs.map(d=>d.data());paintLast()},()=>{}));
+ sub(ref.collection("msgs").orderBy("t").onSnapshot(s=>{msgs=s.docs.map(d=>d.data());paintM("c")},()=>{}))}
+function pinView(){app.onclick=app.oninput=null;
+ app.innerHTML=`<h1>Tu rutina</h1><div class="cd"><p class="mu">Ingresá el PIN que te dio tu profe.</p><input id="pn" inputmode="numeric" placeholder="PIN"><button id="pg">Entrar</button><div id="pe" class="mu" style="color:var(--rd)"></div></div>`;
+ const go=()=>{if($("#pn").value.trim()===String(cur.pin)){unl=cur.id;cview(db.collection("clients").doc(cur.id))}else $("#pe").textContent="PIN incorrecto"};
+ $("#pg").onclick=go;$("#pn").onkeydown=e=>{if(e.key==="Enter")go()}}
+function cview(ref){
+ app.innerHTML=`<h1>Hola ${esc(cur.nombre)}</h1><p class="mu">${esc(cur.objetivo||"")}</p>
+ ${cur.days.map((d,i)=>`<div class="cd"><b>${esc(d.t)}</b>${d.ex.map((x,j)=>`<div class="ex2"><b>${esc(x.n)}</b> <span class="mu">${esc(x.s)} × ${esc(x.r)}</span><div class="mu" data-last="${i}-${j}"></div><div class="row"><input type="number" inputmode="decimal" placeholder="kg" id="k${i}-${j}"><input type="number" inputmode="numeric" placeholder="reps" id="r${i}-${j}"><button data-sv="${i}-${j}">Guardar</button></div></div>`).join("")}</div>`).join("")}
+ <div class="cd"><b>Chat con tu profe</b><div id="ch"></div><div class="row"><input id="mt" placeholder="Escribí un mensaje"><button id="ms">Enviar</button></div></div>`;
+ paintLast();paintM("c");
+ app.onclick=async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
+  try{
+  if(d.sv){const[i,j]=d.sv.split("-"),k=$("#k"+d.sv).value,r=$("#r"+d.sv).value;if(!k&&!r)return;
+   await ref.collection("logs").add({n:cur.days[i].ex[j].n,kg:k,reps:r,t:Date.now()});$("#k"+d.sv).value=$("#r"+d.sv).value="";toast("✔ Guardado")}
+  if(b.id==="ms"){const v=$("#mt").value.trim();if(v){$("#mt").value="";await ref.collection("msgs").add({from:"c",tx:v,t:Date.now()})}}
+  }catch(err){toast("Error: "+err.message)}}}
+function paintLast(){app.querySelectorAll("[data-last]").forEach(el=>{const[i,j]=el.dataset.last.split("-"),x=cur.days&&cur.days[i]&&cur.days[i].ex[j],l=x&&logs.find(l=>l.n===x.n);
+ el.textContent=l?`Última vez: ${l.kg||"-"} kg × ${l.reps||"-"} (${new Date(l.t).toLocaleDateString("es-AR")})`:""})}
+</script></body></html>
