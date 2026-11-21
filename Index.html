@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -32,6 +31,12 @@ label{font-size:14px;color:var(--mu)}
 .ok input{width:26px;height:26px;margin:0;accent-color:var(--ac)}
 .tg{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;color:#fff;background:var(--ac)}
 .tg.g{background:var(--go);color:#111}.tg.r{background:var(--rd)}
+select{width:100%;padding:10px;margin:4px 0 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+.row select{margin:0;flex:1}
+.dys{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}.dys button{margin:0}
+.pb{height:8px;background:var(--bd);border-radius:6px;overflow:hidden;margin:6px 0 10px}
+.pb i{display:block;height:100%;background:var(--ac);width:0;transition:width .25s}
+a.bt.s{background:transparent;color:var(--ac)}
 .b{padding:8px 12px;border-radius:14px;margin:4px 0;max-width:85%;width:fit-content}
 .me{background:var(--ac);color:#fff;margin-left:auto}.ot{background:var(--bd)}
 #ch{max-height:240px;overflow:auto;margin-bottom:8px}
@@ -50,7 +55,8 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const nz=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 const LOGO=$("#ic").href;document.head.insertAdjacentHTML("beforeend",`<link rel="apple-touch-icon" href="${LOGO}">`);
 const hdr=(t,s)=>`<div class="hd"><img src="${LOGO}" alt=""><div><h1>${t}</h1>${s?`<div class="mu">${s}</div>`:""}</div></div>`;
-let U=[],cur={},unl=null,delArm=null,logs=[],msgs=[],ROLE=null,PN="",F="all";
+const big=(t,s)=>`<div style="text-align:center;margin:18px 0 20px"><img src="${LOGO}" alt="" style="width:104px;height:104px;border-radius:22px;object-fit:cover;background:#000;box-shadow:0 6px 20px rgba(0,0,0,.25)"><h1 style="margin-top:12px;font-size:30px">${t}</h1>${s?`<div class="mu" style="margin-top:4px">${s}</div>`:""}</div>`;
+let U=[],cur={},unl=null,delArm=null,logs=[],msgs=[],ROLE=null,PN="",F="all",PL=[],selDay=-1,G={};
 const DAY=864e5,dias=c=>(Date.now()-(c.visto||c.desde||0))/DAY,ina=c=>dias(c)>=60,due=c=>(Date.now()-(c.ultCons||c.desde||0))/DAY>=30,unr=c=>(c.ultMsgC||0)>(c.leidoP||0);
 const clr=()=>{U.forEach(u=>u());U=[]},sub=u=>U.push(u);
 const rst=()=>{clr();app.onclick=app.oninput=app.onchange=null};
@@ -69,7 +75,7 @@ async function enter(u){ROLE=null;
  rst();app.innerHTML=hdr("Sin acceso")+`<div class="cd"><p>Tu usuario todavía no tiene permiso. Pedile acceso al administrador.</p><button class="s" id="out">Salir</button></div>`;$("#out").onclick=()=>auth.signOut()}
 
 function login(){rst();
- app.innerHTML=hdr("Blue Horse <em>Gym</em>","Ingreso de profes")+`<div class="cd"><input id="em" type="email" placeholder="Email" autocomplete="username"><input id="pw" type="password" placeholder="Contraseña" autocomplete="current-password"><button id="go">Entrar</button> <button class="s" id="fg">Olvidé mi contraseña</button><div id="er" class="mu" style="color:var(--rd)"></div></div>`;
+ app.innerHTML=big("Blue Horse <em>Gym</em>","Ingreso de profes")+`<div class="cd"><input id="em" type="email" placeholder="Email" autocomplete="username"><input id="pw" type="password" placeholder="Contraseña" autocomplete="current-password"><button id="go">Entrar</button> <button class="s" id="fg">Olvidé mi contraseña</button><div id="er" class="mu" style="color:var(--rd)"></div></div>`;
  $("#go").onclick=()=>auth.signInWithEmailAndPassword($("#em").value.trim(),$("#pw").value).catch(()=>$("#er").textContent="Email o contraseña incorrectos.");
  $("#fg").onclick=()=>{const e=$("#em").value.trim();if(!e)return toast("Escribí tu email arriba");auth.sendPasswordResetEmail(e).then(()=>toast("Te enviamos un email para cambiarla")).catch(x=>toast(x.message))}}
 
@@ -101,11 +107,16 @@ function coachHome(){rst();let cl=[];const adm=ROLE==="admin";
 
 function profsView(){rst();let ps=[];
  app.innerHTML=`<button class="s" id="bk">← Clientes</button>`+hdr("Profes","Acceso para crear rutinas")+`<div class="cd"><b>Nuevo profe</b><input id="pn1" placeholder="Nombre"><input id="pe1" type="email" placeholder="Email"><input id="pw1" placeholder="Contraseña (mínimo 6)"><button id="mk">Crear profe</button><div id="mr"></div></div><div id="pl"></div>`;
- sub(db.collection("profs").onSnapshot(s=>{ps=s.docs.map(d=>d.data());$("#pl").innerHTML=ps.map(p=>`<div class="cd"><b>${esc(p.nombre)}</b><div class="mu">${esc(p.email)}</div><button class="x" data-rp="${esc(p.uid)}">Quitar acceso</button></div>`).join("")||'<p class="mu">Todavía no hay profes.</p>'}));
+ sub(db.collection("profs").onSnapshot(s=>{ps=s.docs.map(d=>d.data());const me=auth.currentUser.uid,op=ex=>[{uid:me,nombre:"Administrador (yo)"},...ps].filter(x=>x.uid!==ex).map(x=>`<option value="${esc(x.uid)}">${esc(x.nombre)}</option>`).join("");
+  $("#pl").innerHTML=ps.map(p=>`<div class="cd"><b>${esc(p.nombre)}</b><div class="mu">${esc(p.email)}</div><div class="row" style="margin:8px 0"><select data-to="${esc(p.uid)}">${op(p.uid)}</select><button class="s" data-mv="${esc(p.uid)}">Pasar sus clientes</button></div><button class="x" data-rp="${esc(p.uid)}">Quitar acceso</button></div>`).join("")||'<p class="mu">Todavía no hay profes.</p>'}));
  app.onclick=async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
   try{
   if(b.id==="bk")return coachHome();
-  if(d.rp){if(delArm!==d.rp){delArm=d.rp;b.textContent="¿Seguro? Tocá otra vez";return}delArm=null;await db.collection("profs").doc(d.rp).delete();toast("Acceso quitado")}
+  if(d.mv){const sel=app.querySelector(`select[data-to="${d.mv}"]`),to=sel.value,nm=to===auth.currentUser.uid?PN:sel.options[sel.selectedIndex].text,s=await db.collection("clients").where("prof","==",d.mv).get();
+   if(!s.size)return toast("Ese profe no tiene clientes");
+   if(delArm!=="mv"+d.mv){delArm="mv"+d.mv;b.textContent="¿Pasar "+s.size+" a "+nm+"? Tocá otra vez";return}
+   delArm=null;const ds=s.docs;for(let i=0;i<ds.length;i+=400){const bt=db.batch();ds.slice(i,i+400).forEach(x=>bt.update(x.ref,{prof:to,profNombre:nm}));await bt.commit()}toast("Pasados "+ds.length+" clientes a "+nm);b.textContent="Pasar sus clientes"}
+  if(d.rp){const n=(await db.collection("clients").where("prof","==",d.rp).get()).size;if(delArm!==d.rp){delArm=d.rp;b.textContent=n?"Tiene "+n+" clientes · tocá otra vez para quitar igual":"¿Seguro? Tocá otra vez";return}delArm=null;await db.collection("profs").doc(d.rp).delete();toast("Acceso quitado")}
   if(b.id==="mk"){const n=$("#pn1").value.trim(),em=$("#pe1").value.trim().toLowerCase(),pw=$("#pw1").value;if(!n||!em||pw.length<6)return toast("Completá nombre, email y contraseña (mínimo 6)");
    const c=await sec.auth().createUserWithEmailAndPassword(em,pw);await sec.auth().signOut();await db.collection("profs").doc(c.user.uid).set({uid:c.user.uid,nombre:n,email:em,t:Date.now()});
    const msg=`Hola ${n}! Ya podés crear rutinas en Blue Horse Gym. Entrá a ${base()} con tu email ${em} y la contraseña ${pw}`;
@@ -114,7 +125,7 @@ function profsView(){rst();let ps=[];
   }catch(err){toast(err.message)}}}
 
 function editor(id){rst();logs=[];msgs=[];const ref=db.collection("clients").doc(id);
- ref.get().then(s=>{cur=s.exists?{...s.data()}:{nombre:"",cel:"",objetivo:"",pin:"",profNombre:PN,days:[{t:"Día 1",ex:[]}],desde:Date.now()};cur.id=id;
+ Promise.all([ref.get(),ROLE==="admin"?db.collection("profs").get().then(q=>{PL=q.docs.map(d=>d.data())}).catch(()=>{}):0]).then(([s])=>{cur=s.exists?{...s.data()}:{nombre:"",cel:"",objetivo:"",pin:"",profNombre:PN,days:[{t:"Día 1",ex:[]}],desde:Date.now()};cur.id=id;
   sub(ref.collection("logs").orderBy("t","desc").limit(30).onSnapshot(s=>{logs=s.docs.map(d=>d.data());paintLg()},()=>{}));
   sub(ref.collection("msgs").orderBy("t").onSnapshot(s=>{msgs=s.docs.map(d=>d.data());paintM("p");const l=msgs[msgs.length-1];
    if(l&&l.from==="c"&&l.t>(cur.leidoP||0)){cur.leidoP=Date.now();ref.update({leidoP:cur.leidoP}).catch(()=>{})}},()=>{}));
@@ -126,7 +137,8 @@ const save=ref=>{const{visto,ultMsgC,leidoP,ultCons,...r}=cur;cur.prof=cur.prof|
 function draw(ref){
  app.innerHTML=`<button class="s" id="bk">← Clientes</button>`+hdr(esc(cur.nombre||"Cliente nuevo"),"Profe: "+esc(cur.profNombre||PN))+`
  <div class="cd">${[["nombre","Nombre"],["cel","Celular con código de país (ej. 5493415551234)"],["objetivo","Objetivo"],["profNombre","Profe responsable (lo ve el alumno)"],["pin","PIN del alumno (opcional)"]].map(([k,l])=>`<label>${l}</label><input data-p="${k}" value="${esc(cur[k])}">`).join("")}</div>
- ${cur.days.map((d,i)=>`<div class="cd"><input data-dt="${i}" value="${esc(d.t)}" style="font-weight:700">${d.ex.map((x,j)=>`<div class="exe"><input data-d="${i}" data-e="${j}" data-f="n" placeholder="Ejercicio" value="${esc(x.n)}"><div class="row"><input data-d="${i}" data-e="${j}" data-f="s" placeholder="Series" value="${esc(x.s)}"><input data-d="${i}" data-e="${j}" data-f="r" placeholder="Reps" value="${esc(x.r)}"><input data-d="${i}" data-e="${j}" data-f="p" placeholder="Pausa" value="${esc(x.p)}"><button class="x" data-rx="${i},${j}">✕</button></div></div>`).join("")}<button class="s" data-ax="${i}">+ Ejercicio</button> <button class="x" data-rd="${i}">Quitar día</button></div>`).join("")}
+ ${ROLE==="admin"?`<div class="cd"><b>Asignar a otro profe</b><div class="row" style="margin-top:6px"><select id="ap">${[{uid:auth.currentUser.uid,nombre:"Administrador (yo)"},...PL].map(p=>`<option value="${esc(p.uid)}"${p.uid===cur.prof?" selected":""}>${esc(p.nombre)}</option>`).join("")}</select><button id="as">Asignar</button></div></div>`:""}
+ ${cur.days.map((d,i)=>`<div class="cd"><input data-dt="${i}" value="${esc(d.t)}" style="font-weight:700">${d.ex.map((x,j)=>`<div class="exe"><input data-d="${i}" data-e="${j}" data-f="n" placeholder="Ejercicio" value="${esc(x.n)}"><div class="row"><input data-d="${i}" data-e="${j}" data-f="s" placeholder="Series" value="${esc(x.s)}"><input data-d="${i}" data-e="${j}" data-f="r" placeholder="Reps" value="${esc(x.r)}"><input data-d="${i}" data-e="${j}" data-f="p" placeholder="Pausa" value="${esc(x.p)}"><button class="x" data-rx="${i},${j}">✕</button></div><div class="row" style="margin-top:6px"><input data-d="${i}" data-e="${j}" data-f="v" placeholder="Video (link de YouTube, opcional)" value="${esc(x.v)}"><button class="s" data-yt="${i},${j}">🔎</button></div></div>`).join("")}<button class="s" data-ax="${i}">+ Ejercicio</button> <button class="x" data-rd="${i}">Quitar día</button></div>`).join("")}
  <button class="s" id="ad">+ Día</button>
  <div style="margin:12px 0"><button id="sv">Guardar</button> <button class="s" id="sh">Enviar al alumno</button></div><div id="shp"></div>
  ${cur.upd&&due(cur)?`<div class="cd" style="border-color:var(--go)"><b>🔔 Pasó 1 mes</b><div class="mu">Preguntale cómo viene con la rutina.</div><button id="cq">Enviar consulta al chat</button> <button class="s" id="cw">Por WhatsApp</button></div>`:""}
@@ -139,7 +151,9 @@ function draw(ref){
  app.onclick=async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
   try{
   if(b.id==="bk")return coachHome();
-  if(d.ax!==undefined){cur.days[d.ax].ex.push({n:"",s:"",r:"",p:""});return draw(ref)}
+  if(d.ax!==undefined){cur.days[d.ax].ex.push({n:"",s:"",r:"",p:"",v:""});return draw(ref)}
+  if(d.yt){const[i,j]=d.yt.split(",");window.open("https://www.youtube.com/results?search_query="+encodeURIComponent((cur.days[i].ex[j].n||"")+" ejercicio técnica"),"_blank");return}
+  if(b.id==="as"){const s=$("#ap"),u=s.value;cur.prof=u;cur.profNombre=u===auth.currentUser.uid?PN:s.options[s.selectedIndex].text;await save(ref);toast("Asignado a "+cur.profNombre);return draw(ref)}
   if(d.rx){const[i,j]=d.rx.split(",");cur.days[i].ex.splice(j,1);return draw(ref)}
   if(d.rd!==undefined){cur.days.splice(d.rd,1);return draw(ref)}
   if(b.id==="ad"){cur.days.push({t:"Día "+(cur.days.length+1),ex:[]});return draw(ref)}
@@ -154,7 +168,7 @@ function draw(ref){
    delArm=null;await delClient(cur.id);coachHome()}
   }catch(err){toast("Error: "+err.message)}}}
 
-function clientView(id){rst();logs=[];msgs=[];let tch=false;const ref=db.collection("clients").doc(id);
+function clientView(id){rst();logs=[];msgs=[];selDay=-1;G={};let tch=false;const ref=db.collection("clients").doc(id);
  sub(ref.onSnapshot(s=>{if(!s.exists){app.innerHTML="<p>Este link no es válido. Pedile uno nuevo a tu profe.</p>";return}
   cur=s.data();cur.id=id;const cl=isCoach(auth.currentUser);
   if(!tch&&!cl){tch=true;if(Date.now()-(cur.visto||0)>6*36e5)ref.update({visto:Date.now()}).catch(()=>{})}
@@ -162,27 +176,45 @@ function clientView(id){rst();logs=[];msgs=[];let tch=false;const ref=db.collect
  sub(ref.collection("logs").orderBy("t","desc").limit(300).onSnapshot(s=>{logs=s.docs.map(d=>d.data());paintLast()},()=>{}));
  sub(ref.collection("msgs").orderBy("t").onSnapshot(s=>{msgs=s.docs.map(d=>d.data());paintM("c")},()=>{}))}
 function pinView(){app.onclick=app.oninput=app.onchange=null;
- app.innerHTML=hdr("Tu rutina","Profe: "+esc(cur.profNombre||""))+`<div class="cd"><p class="mu">Ingresá el PIN que te dio tu profe.</p><input id="pn" inputmode="numeric" placeholder="PIN"><button id="pg">Entrar</button><div id="pe" class="mu" style="color:var(--rd)"></div></div>`;
+ app.innerHTML=big("Tu rutina","Profe: "+esc(cur.profNombre||""))+`<div class="cd"><p class="mu">Ingresá el PIN que te dio tu profe.</p><input id="pn" inputmode="numeric" placeholder="PIN"><button id="pg">Entrar</button><div id="pe" class="mu" style="color:var(--rd)"></div></div>`;
  const go=()=>{if($("#pn").value.trim()===String(cur.pin)){unl=cur.id;cview(db.collection("clients").doc(cur.id))}else $("#pe").textContent="PIN incorrecto"};
  $("#pg").onclick=go;$("#pn").onkeydown=e=>{if(e.key==="Enter")go()}}
 const dk=()=>"bh:"+cur.id+":"+new Date().toLocaleDateString("sv-SE");
 const ld=()=>{try{return JSON.parse(localStorage.getItem(dk())||"{}")}catch(e){return{}}};
 const sd=o=>{try{localStorage.setItem(dk(),JSON.stringify(o))}catch(e){}};
+const vid=x=>{const v=String(x.v||"").trim();return /^https?:\/\//i.test(v)?v:"https://www.youtube.com/results?search_query="+encodeURIComponent((x.n||"")+" ejercicio técnica")};
+function chart(n){const p=logs.filter(l=>l.n===n&&!isNaN(parseFloat(l.kg))).sort((a,b)=>a.t-b.t).map(l=>({t:l.t,v:parseFloat(l.kg)}));
+ if(p.length<2)return '<div class="mu">Cargá al menos 2 registros de peso para ver tu evolución.</div>';
+ const W=300,H=110,pd=24,mn=Math.min(...p.map(x=>x.v)),mx=Math.max(...p.map(x=>x.v)),r=mx-mn||1,t0=p[0].t,t1=p[p.length-1].t,tr=t1-t0||1,X=t=>pd+(W-2*pd)*(t-t0)/tr,Y=v=>H-pd-(H-2*pd)*(v-mn)/r,f=t=>new Date(t).toLocaleDateString("es-AR");
+ return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Evolución de tus kilos"><polyline points="${p.map(x=>X(x.t).toFixed(1)+","+Y(x.v).toFixed(1)).join(" ")}" fill="none" style="stroke:var(--ac)" stroke-width="2.5"/>${p.map(x=>`<circle cx="${X(x.t).toFixed(1)}" cy="${Y(x.v).toFixed(1)}" r="3.5" style="fill:var(--ac)"/>`).join("")}<text x="4" y="${Y(mx)+4}" font-size="10" style="fill:var(--mu)">${mx}</text><text x="4" y="${Y(mn)+4}" font-size="10" style="fill:var(--mu)">${mn}</text><text x="${pd}" y="${H-6}" font-size="10" style="fill:var(--mu)">${f(t0)}</text><text x="${W-pd}" y="${H-6}" font-size="10" text-anchor="end" style="fill:var(--mu)">${f(t1)}</text></svg><div class="mu">Kilos registrados</div>`}
+function paintG(){app.querySelectorAll("[data-gr]").forEach(el=>{const k=el.dataset.gr,[i,j]=k.split("-"),x=cur.days&&cur.days[i]&&cur.days[i].ex[j];el.style.display=G[k]?"":"none";if(G[k]&&x)el.innerHTML=chart(x.n)})}
+function sm(){const d=cur.days&&cur.days[selDay];if(!d||!$("#sm"))return;const done=ld(),n=d.ex.filter((_,j)=>done[selDay+"-"+j]).length;
+ $("#sm").textContent="Hechos hoy: "+n+" de "+d.ex.length;$("#pbi").style.width=(d.ex.length?n/d.ex.length*100:0)+"%";
+ app.querySelectorAll("[data-dy]").forEach(b=>{const i=+b.dataset.dy,dd=cur.days[i];b.textContent=dd.t+(dd.ex.length&&dd.ex.every((_,j)=>done[i+"-"+j])?" ✓":"")})}
 function cview(ref){const done=ld();
+ if(selDay<0){try{selDay=+(localStorage.getItem("bh:day:"+cur.id)||0)}catch(e){selDay=0}}
+ if(!cur.days[selDay])selDay=0;
+ const i=selDay,d=cur.days[i]||{t:"",ex:[]};
  app.innerHTML=hdr("Hola "+esc(cur.nombre),"Profe: "+esc(cur.profNombre||""))+`<p class="mu">${esc(cur.objetivo||"")}</p>
- ${cur.days.map((d,i)=>`<div class="cd"><b>${esc(d.t)}</b>${d.ex.map((x,j)=>{const k=i+"-"+j;return `<div class="ex2${done[k]?" done":""}"><b class="nm">${esc(x.n)}</b> <span class="mu">${esc(x.s)} × ${esc(x.r)}${x.p?" · Pausa "+esc(x.p):""}</span>
+ <div class="dys">${cur.days.map((x,k)=>`<button class="${k===i?"":"s"}" data-dy="${k}">${esc(x.t)}</button>`).join("")}</div>
+ <div class="cd"><b>${esc(d.t)}</b><div class="mu" id="sm"></div><div class="pb"><i id="pbi"></i></div>
+ ${d.ex.map((x,j)=>{const k=i+"-"+j;return `<div class="ex2${done[k]?" done":""}"><b class="nm">${esc(x.n)}</b> <span class="mu">${esc(x.s)} × ${esc(x.r)}${x.p?" · Pausa "+esc(x.p):""}</span>
   <div class="mu" data-last="${k}"></div>
   <label class="ok"><input type="checkbox" data-ck="${k}"${done[k]?" checked":""}> Hecho</label>
-  <div class="row"><input type="number" inputmode="decimal" placeholder="kg" id="k${k}"><input type="number" inputmode="numeric" placeholder="reps" id="r${k}"><button data-sv="${k}">Guardar</button></div></div>`}).join("")}</div>`).join("")}
+  <div class="row"><input type="number" inputmode="decimal" placeholder="kg" id="k${k}"><input type="number" inputmode="numeric" placeholder="reps" id="r${k}"><button data-sv="${k}">Guardar</button></div>
+  <div class="row" style="margin-top:6px"><button class="s" data-g="${k}">📈 Mi evolución</button><a class="bt s" target="_blank" rel="noopener" href="${esc(vid(x))}">▶ Cómo se hace</a></div>
+  <div data-gr="${k}" style="display:none"></div></div>`}).join("")||'<p class="mu">Este día todavía no tiene ejercicios.</p>'}</div>
  <div class="cd"><b>Chat con tu profe</b><div id="ch"></div><div class="row"><input id="mt" placeholder="Escribí un mensaje"><button id="ms">Enviar</button></div></div>`;
- paintLast();paintM("c");
- app.onchange=e=>{const t=e.target,k=t.dataset.ck;if(!k)return;const o=ld();o[k]=t.checked;sd(o);t.closest(".ex2").classList.toggle("done",t.checked)};
+ paintLast();paintM("c");sm();
+ app.onchange=e=>{const t=e.target,k=t.dataset.ck;if(!k)return;const o=ld();o[k]=t.checked;sd(o);t.closest(".ex2").classList.toggle("done",t.checked);sm()};
  app.onclick=async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
   try{
+  if(d.dy!==undefined){selDay=+d.dy;try{localStorage.setItem("bh:day:"+cur.id,selDay)}catch(x){}return cview(ref)}
+  if(d.g){G[d.g]=!G[d.g];return paintG()}
   if(d.sv){const[i,j]=d.sv.split("-"),k=$("#k"+d.sv).value,r=$("#r"+d.sv).value;if(!k&&!r)return;
    await ref.collection("logs").add({n:cur.days[i].ex[j].n,kg:k,reps:r,t:Date.now()});$("#k"+d.sv).value=$("#r"+d.sv).value="";toast("✔ Guardado")}
   if(b.id==="ms"){const v=$("#mt").value.trim();if(v){$("#mt").value="";await ref.collection("msgs").add({from:"c",tx:v,t:Date.now()});ref.update({ultMsgC:Date.now()}).catch(()=>{})}}
   }catch(err){toast("Error: "+err.message)}}}
 function paintLast(){app.querySelectorAll("[data-last]").forEach(el=>{const[i,j]=el.dataset.last.split("-"),x=cur.days&&cur.days[i]&&cur.days[i].ex[j],l=x&&logs.find(l=>l.n===x.n);
- el.textContent=l?`Última vez: ${l.kg||"-"} kg × ${l.reps||"-"} (${new Date(l.t).toLocaleDateString("es-AR")})`:""})}
+ el.textContent=l?`Última vez: ${l.kg||"-"} kg × ${l.reps||"-"} (${new Date(l.t).toLocaleDateString("es-AR")})`:""});paintG()}
 </script></body></html>
