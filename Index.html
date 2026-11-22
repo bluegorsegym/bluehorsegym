@@ -54,10 +54,11 @@ const auth=firebase.auth(),db=firebase.firestore(),$=s=>document.querySelector(s
 const ADMIN="guillegori760@gmail.com";
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const nz=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+const fn=c=>String(c.apodo||"").trim()||String(c.nombre||"").trim().split(/\s+/)[0]||"";
 const LOGO=$("#ic").href;document.head.insertAdjacentHTML("beforeend",`<link rel="apple-touch-icon" href="${LOGO}">`);
 const hdr=(t,s)=>`<div class="hd"><img src="${LOGO}" alt=""><div><h1>${t}</h1>${s?`<div class="mu">${s}</div>`:""}</div></div>`;
 const big=(t,s)=>`<div style="text-align:center;margin:18px 0 20px"><img src="${LOGO}" alt="" style="width:104px;height:104px;border-radius:22px;object-fit:cover;background:#000;box-shadow:0 6px 20px rgba(0,0,0,.25)"><h1 style="margin-top:12px;font-size:30px">${t}</h1>${s?`<div class="mu" style="margin-top:4px">${s}</div>`:""}</div>`;
-let U=[],cur={},unl=null,delArm=null,logs=[],msgs=[],ROLE=null,PN="",F="all",PL=[],selDay=-1,G={};
+let U=[],cur={},unl=null,delArm=null,logs=[],msgs=[],ROLE=null,PN="",F="all",PL=[],CL=[],selDay=-1,G={};
 const DAY=864e5,dias=c=>(Date.now()-(c.visto||c.desde||0))/DAY,ina=c=>dias(c)>=60,due=c=>(Date.now()-(c.ultCons||c.desde||0))/DAY>=30,unr=c=>(c.ultMsgC||0)>(c.leidoP||0);
 const clr=()=>{U.forEach(u=>u());U=[]},sub=u=>U.push(u);
 const rst=()=>{clr();app.onclick=app.oninput=app.onchange=null};
@@ -89,10 +90,10 @@ function coachHome(){rst();let cl=[];const adm=ROLE==="admin";
  const paint=()=>{const a=cl.filter(c=>!ina(c)).length,i=cl.length-a,d=cl.filter(due).length,v=nz($("#sq").value);
   $("#st").textContent=`Rutinas: ${cl.length} · Activas: ${a} · Inactivas (+60 días sin abrir): ${i}`;
   $("#fl").innerHTML=[["all","Todos"],["act","Activas"],["ina","Inactivas ("+i+")"],["due","🔔 Consultar ("+d+")"]].map(([k,l])=>`<button class="${F===k?"":"s"}" data-f="${k}">${l}</button>`).join(" ")+(F==="ina"&&i?` <button class="x" id="pg">Eliminar las ${i} inactivas</button>`:"");
-  const L=cl.filter(c=>(F==="all"||(F==="act"&&!ina(c))||(F==="ina"&&ina(c))||(F==="due"&&due(c)))&&(!v||nz([c.nombre,c.objetivo,c.cel,c.profNombre].join(" ")).includes(v))).sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre)));
+  const L=cl.filter(c=>(F==="all"||(F==="act"&&!ina(c))||(F==="ina"&&ina(c))||(F==="due"&&due(c)))&&(!v||nz([c.nombre,c.apodo,c.objetivo,c.cel,c.profNombre].join(" ")).includes(v))).sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre)));
   $("#ls").innerHTML=L.map(c=>`<div class="cd" data-o="${esc(c.id)}" style="cursor:pointer"><b>${esc(c.nombre||"(sin nombre)")}</b>${due(c)?'<span class="tg g">🔔 Consultar</span>':""}${ina(c)?'<span class="tg r">💤 '+Math.floor(dias(c))+' días</span>':""}${unr(c)?'<span class="tg">💬 Nuevo</span>':""}<div class="mu">${esc(c.objetivo||"")}${adm?" · Profe: "+esc(c.profNombre||"-"):""}</div></div>`).join("")||'<p class="mu">No hay clientes en esta vista.</p>'};
  const q=adm?db.collection("clients"):db.collection("clients").where("prof","==",auth.currentUser.uid);
- sub(q.onSnapshot(s=>{cl=s.docs.map(d=>({...d.data(),id:d.id}));paint()},e=>toast(e.message)));
+ sub(q.onSnapshot(s=>{cl=s.docs.map(d=>({...d.data(),id:d.id}));CL=cl;paint()},e=>toast(e.message)));
  $("#sq").oninput=paint;
  $("#nw").onclick=()=>editor(db.collection("clients").doc().id);
  $("#out").onclick=()=>auth.signOut();
@@ -150,6 +151,8 @@ function parse(tx){const days=[];let d=null;const nd=t=>{d={t,ex:[]};days.push(d
   else if(m=l.match(/^(.*?)[\s:\-–—·]*(\d+)\s*[x×]\s*(\d+(?:\s*[-–]\s*\d+)?)(.*)$/i)){const pz=(m[4].match(/(\d+\s*(?:s|seg|min)\w*)/i)||[])[1]||"";if(!d)nd("Día 1");d.ex.push({n:m[1].trim()||"Ejercicio",s:m[2],r:m[3].replace(/\s/g,""),p:pz,v:""})}
   else if(/^(d[ií]a|day|jornada)\b/i.test(l)||/:$/.test(l))nd(l.replace(/:$/,"").trim().slice(0,40))}
  return days.filter(x=>x.ex.length)}
+const cpOpts=q=>{const v=nz(q),L=CL.filter(c=>c.id!==cur.id&&c.days&&c.days.some(d=>d.ex.length)&&(!v||nz((c.nombre||"")+" "+(c.apodo||"")).includes(v))).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
+ return L.map(c=>`<option value="${esc(c.id)}">${esc(c.nombre)}${c.apodo?" ("+esc(c.apodo)+")":""}</option>`).join("")||'<option value="">Sin resultados</option>'};
 const arpHtml=()=>`<div class="cd"><b>✨ Armar rutina</b><div class="mu">Es una rutina base: revisala y editala antes de enviarla. Con lesiones (disco, menisco), pedí la indicación del médico o kinesiólogo.</div>
  <label>Días por semana</label><select id="aw_d">${[2,3,4,5,6].map(n=>`<option${n===3?" selected":""}>${n}</option>`).join("")}</select>
  <label>Objetivo</label><select id="aw_o"><option value="g">Glúteos y piernas</option><option value="e">Espalda</option><option value="s">Tren superior</option><option value="f">Cuerpo completo</option></select>
@@ -157,7 +160,9 @@ const arpHtml=()=>`<div class="cd"><b>✨ Armar rutina</b><div class="mu">Es una
  <label>Limitación</label><select id="aw_l"><option value="">Ninguna</option><option value="l">Columna lumbar (disco)</option><option value="r">Rodilla (menisco)</option></select>
  <button id="aw_g">Armar con plantilla</button>
  <label style="display:block;margin-top:10px">O pegá una rutina (de Claude u otro chat)</label><textarea id="aw_t" rows="6" placeholder="Día 1 - Piernas&#10;Sentadilla | 4 | 10 | 60s"></textarea>
- <button class="s" id="aw_i">Pegar rutina</button> <button class="s" id="aw_x">Cerrar</button></div>`;
+ <button class="s" id="aw_i">Pegar rutina</button>
+ <label style="display:block;margin-top:10px">O copiá la rutina de otro cliente</label><input id="aw_q" placeholder="Buscar cliente" autocomplete="off"><select id="aw_c">${cpOpts("")}</select><button class="s" id="aw_k">Copiar rutina</button>
+ <div><button class="s" id="aw_x">Cerrar</button></div></div>`;
 function editor(id){rst();logs=[];msgs=[];const ref=db.collection("clients").doc(id);
  Promise.all([ref.get(),ROLE==="admin"?db.collection("profs").get().then(q=>{PL=q.docs.map(d=>d.data())}).catch(()=>{}):0]).then(([s])=>{cur=s.exists?{...s.data()}:{nombre:"",cel:"",objetivo:"",pin:"",profNombre:PN,days:[{t:"Día 1",ex:[]}],desde:Date.now()};cur.id=id;
   sub(ref.collection("logs").orderBy("t","desc").limit(30).onSnapshot(s=>{logs=s.docs.map(d=>d.data());paintLg()},()=>{}));
@@ -170,7 +175,7 @@ const save=ref=>{const{visto,ultMsgC,leidoP,ultCons,...r}=cur;cur.prof=cur.prof|
  return ref.set({...r,prof:cur.prof,profNombre:cur.profNombre,upd:Date.now()},{merge:true})};
 function draw(ref){
  app.innerHTML=`<button class="s" id="bk">← Clientes</button>`+hdr(esc(cur.nombre||"Cliente nuevo"),"Profe: "+esc(cur.profNombre||PN))+`
- <div class="cd">${[["nombre","Nombre"],["cel","Celular con código de país (ej. 5493415551234)"],["objetivo","Objetivo"],["profNombre","Profe responsable (lo ve el alumno)"],["pin","PIN del alumno (opcional)"]].map(([k,l])=>`<label>${l}</label><input data-p="${k}" value="${esc(cur[k])}">`).join("")}</div>
+ <div class="cd">${[["nombre","Nombre"],["cel","Celular con código de país (ej. 5493415551234)"],["objetivo","Objetivo"],["profNombre","Profe responsable (lo ve el alumno)"],["apodo","Cómo le decimos (opcional, ej. Guille)"],["pin","PIN del alumno (opcional)"]].map(([k,l])=>`<label>${l}</label><input data-p="${k}" value="${esc(cur[k])}">`).join("")}</div>
  ${ROLE==="admin"?`<div class="cd"><b>Asignar a otro profe</b><div class="row" style="margin-top:6px"><select id="ap">${[{uid:auth.currentUser.uid,nombre:"Administrador (yo)"},...PL].map(p=>`<option value="${esc(p.uid)}"${p.uid===cur.prof?" selected":""}>${esc(p.nombre)}</option>`).join("")}</select><button id="as">Asignar</button></div></div>`:""}
  ${cur.days.map((d,i)=>`<div class="cd"><input data-dt="${i}" value="${esc(d.t)}" style="font-weight:700">${d.ex.map((x,j)=>`<div class="exe"><input data-d="${i}" data-e="${j}" data-f="n" placeholder="Ejercicio" value="${esc(x.n)}"><div class="row"><input data-d="${i}" data-e="${j}" data-f="s" placeholder="Series" value="${esc(x.s)}"><input data-d="${i}" data-e="${j}" data-f="r" placeholder="Reps" value="${esc(x.r)}"><input data-d="${i}" data-e="${j}" data-f="p" placeholder="Pausa" value="${esc(x.p)}"><button class="x" data-rx="${i},${j}">✕</button></div><div class="row" style="margin-top:6px"><input data-d="${i}" data-e="${j}" data-f="v" placeholder="Video (link de YouTube, opcional)" value="${esc(x.v)}"><button class="s" data-yt="${i},${j}">🔎</button></div><div class="row" style="margin-top:6px"><button class="s" data-up="${i},${j}" aria-label="Subir">↑</button><button class="s" data-dn="${i},${j}" aria-label="Bajar">↓</button><button class="s" data-ins="${i},${j}">＋ Insertar debajo</button></div></div>`).join("")}<button class="s" data-ax="${i}">+ Ejercicio</button> <button class="x" data-rd="${i}">Quitar día</button></div>`).join("")}
  <button class="s" id="ad">+ Día</button> <button class="s" id="ar">✨ Armar rutina</button><div id="arp"></div>
@@ -180,9 +185,9 @@ function draw(ref){
  <div class="cd"><b>Chat</b><div id="ch"></div><div class="row"><input id="mt" placeholder="Mensaje"><button id="ms">Enviar</button></div></div>
  <button class="x" id="dl">Eliminar cliente</button>`;
  paintLg();paintM("p");
- const add=nd=>{const rp=cur.days.length===1&&!cur.days[0].ex.length,b0=rp?0:cur.days.length;nd.forEach((d,i)=>{if(/^Día \d+ · /.test(d.t))d.t=d.t.replace(/^Día \d+/,"Día "+(b0+i+1))});cur.days=rp?nd:cur.days.concat(nd);toast("Agregué "+nd.length+" días. Revisalos y tocá Guardar.");draw(ref)};
- const consulta=()=>`Hola ${cur.nombre}! Soy ${cur.profNombre||PN}. ¿Cómo venís con la rutina? ¿Cómo te sentís, necesitás cambiar algo?`;
- app.oninput=e=>{const t=e.target,d=t.dataset;if(d.p)cur[d.p]=t.value;else if(d.dt!==undefined)cur.days[d.dt].t=t.value;else if(d.f)cur.days[d.d].ex[d.e][d.f]=t.value};
+ const add=nd=>{const rp=cur.days.length===1&&!cur.days[0].ex.length,b0=rp?0:cur.days.length;nd.forEach((d,i)=>{if(/^Día \d+/.test(d.t))d.t=d.t.replace(/^Día \d+/,"Día "+(b0+i+1))});cur.days=rp?nd:cur.days.concat(nd);toast("Agregué "+nd.length+" días. Revisalos y tocá Guardar.");draw(ref)};
+ const consulta=()=>`Hola ${fn(cur)}! Soy ${cur.profNombre||PN}. ¿Cómo venís con la rutina? ¿Cómo te sentís, necesitás cambiar algo?`;
+ app.oninput=e=>{const t=e.target,d=t.dataset;if(t.id==="aw_q"){$("#aw_c").innerHTML=cpOpts(t.value);return}if(d.p)cur[d.p]=t.value;else if(d.dt!==undefined)cur.days[d.dt].t=t.value;else if(d.f)cur.days[d.d].ex[d.e][d.f]=t.value};
  app.onclick=async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
   try{
   if(b.id==="bk")return coachHome();
@@ -190,6 +195,7 @@ function draw(ref){
   if(b.id==="aw_x"){$("#arp").innerHTML="";return}
   if(b.id==="aw_g")return add(gen(+$("#aw_d").value,$("#aw_o").value,+$("#aw_n").value,$("#aw_l").value));
   if(b.id==="aw_i"){const r=parse($("#aw_t").value);if(!r.length)return toast("No encontré ejercicios. Revisá el formato.");return add(r)}
+  if(b.id==="aw_k"){const c=CL.find(x=>x.id===$("#aw_c").value);if(!c)return toast("Elegí un cliente");return add(JSON.parse(JSON.stringify(c.days)))}
   if(d.ins||d.up||d.dn){const[i,j]=(d.ins||d.up||d.dn).split(",").map(Number),a=cur.days[i].ex;let k=j;
    if(d.ins){a.splice(j+1,0,{n:"",s:"",r:"",p:"",v:""});k=j+1}
    else if(d.up){if(j<1)return;[a[j],a[j-1]]=[a[j-1],a[j]];k=j-1}
@@ -202,7 +208,7 @@ function draw(ref){
   if(d.rd!==undefined){cur.days.splice(d.rd,1);return draw(ref)}
   if(b.id==="ad"){cur.days.push({t:"Día "+(cur.days.length+1),ex:[]});return draw(ref)}
   if(b.id==="sv"){await save(ref);toast("✔ Guardado")}
-  if(b.id==="sh"){await save(ref);const link=base()+"#c="+cur.id,msg=`Hola ${cur.nombre}! Tu rutina de ${cur.profNombre||PN} está acá: ${link}`+(cur.pin?` (PIN: ${cur.pin})`:"");
+  if(b.id==="sh"){await save(ref);const link=base()+"#c="+cur.id,msg=`Hola ${fn(cur)}! Tu rutina de ${cur.profNombre||PN} está acá: ${link}`+(cur.pin?` (PIN: ${cur.pin})`:"");
    $("#shp").innerHTML=`<div class="cd"><a class="bt" target="_blank" rel="noopener" href="https://wa.me/${(cur.cel||"").replace(/\D/g,"")}?text=${encodeURIComponent(msg)}">Enviar por WhatsApp</a> <button class="s" id="cp">Copiar mensaje</button></div>`;
    $("#cp").onclick=()=>navigator.clipboard.writeText(msg).then(()=>toast("Copiado"))}
   if(b.id==="cw"){window.open(`https://wa.me/${(cur.cel||"").replace(/\D/g,"")}?text=${encodeURIComponent(consulta()+" Respondeme por acá o en la app: "+base()+"#c="+cur.id)}`,"_blank");cur.ultCons=Date.now();await ref.update({ultCons:cur.ultCons});draw(ref)}
@@ -239,7 +245,7 @@ function cview(ref){const done=ld();
  if(selDay<0){try{selDay=+(localStorage.getItem("bh:day:"+cur.id)||0)}catch(e){selDay=0}}
  if(!cur.days[selDay])selDay=0;
  const i=selDay,d=cur.days[i]||{t:"",ex:[]};
- app.innerHTML=hdr("Hola "+esc(cur.nombre),"Profe: "+esc(cur.profNombre||""))+`<p class="mu">${esc(cur.objetivo||"")}</p>
+ app.innerHTML=hdr("¡Hola "+esc(fn(cur))+"!","Profe: "+esc(cur.profNombre||""))+`<p class="mu">${esc(cur.objetivo||"")}</p>
  <div class="dys">${cur.days.map((x,k)=>`<button class="${k===i?"":"s"}" data-dy="${k}">${esc(x.t)}</button>`).join("")}</div>
  <div class="cd"><b>${esc(d.t)}</b><div class="mu" id="sm"></div><div class="pb"><i id="pbi"></i></div>
  ${d.ex.map((x,j)=>{const k=i+"-"+j;return `<div class="ex2${done[k]?" done":""}"><b class="nm">${esc(x.n)}</b> <span class="mu">${esc(x.s)} × ${esc(x.r)}${x.p?" · Pausa "+esc(x.p):""}</span>
