@@ -58,7 +58,7 @@ const fn=c=>String(c.apodo||"").trim()||String(c.nombre||"").trim().split(/\s+/)
 const LOGO=$("#ic").href;document.head.insertAdjacentHTML("beforeend",`<link rel="apple-touch-icon" href="${LOGO}">`);
 const hdr=(t,s)=>`<div class="hd"><img src="${LOGO}" alt=""><div><h1>${t}</h1>${s?`<div class="mu">${s}</div>`:""}</div></div>`;
 const big=(t,s)=>`<div style="text-align:center;margin:18px 0 20px"><img src="${LOGO}" alt="" style="width:104px;height:104px;border-radius:22px;object-fit:cover;background:#000;box-shadow:0 6px 20px rgba(0,0,0,.25)"><h1 style="margin-top:12px;font-size:30px">${t}</h1>${s?`<div class="mu" style="margin-top:4px">${s}</div>`:""}</div>`;
-let U=[],cur={},unl=null,delArm=null,logs=[],msgs=[],ROLE=null,PN="",F="all",PL=[],CL=[],selDay=-1,G={};
+let U=[],cur={},unl=null,delArm=null,logs=[],msgs=[],ROLE=null,PN="",F="all",PL=[],CL=[],PF="all",selDay=-1,G={};
 const DAY=864e5,dias=c=>(Date.now()-(c.visto||c.desde||0))/DAY,ina=c=>dias(c)>=60,due=c=>(Date.now()-(c.ultCons||c.desde||0))/DAY>=30,unr=c=>(c.ultMsgC||0)>(c.leidoP||0);
 const clr=()=>{U.forEach(u=>u());U=[]},sub=u=>U.push(u);
 const rst=()=>{clr();app.onclick=app.oninput=app.onchange=null};
@@ -85,16 +85,19 @@ async function delClient(id){const ref=db.collection("clients").doc(id),r=[];
  for(const n of["logs","msgs"])(await ref.collection(n).get()).forEach(x=>r.push(x.ref));r.push(ref);
  for(let i=0;i<r.length;i+=400){const bt=db.batch();r.slice(i,i+400).forEach(x=>bt.delete(x));await bt.commit()}}
 
-function coachHome(){rst();let cl=[];const adm=ROLE==="admin";
- app.innerHTML=hdr("Mis clientes",esc(PN)+(adm?" · Admin":""))+`<div id="st" class="mu"></div><div id="fl" style="margin:8px 0"></div><button id="nw">+ Nuevo cliente</button> ${adm?'<button class="s" id="pf">Profes</button> ':""}<button class="s" id="bp">Copia (CSV)</button><input id="sq" placeholder="Buscar cliente" autocomplete="off" style="margin-top:10px"><div id="ls"></div><button class="s" id="out">Salir</button>`;
- const paint=()=>{const a=cl.filter(c=>!ina(c)).length,i=cl.length-a,d=cl.filter(due).length,v=nz($("#sq").value);
-  $("#st").textContent=`Rutinas: ${cl.length} · Activas: ${a} · Inactivas (+60 días sin abrir): ${i}`;
+function coachHome(){rst();let cl=[];const adm=ROLE==="admin",view=()=>adm&&PF!=="all"?cl.filter(c=>(c.prof||"")===PF):cl;
+ app.innerHTML=hdr("Mis clientes",esc(PN)+(adm?" · Admin":""))+`${adm?'<select id="fp"></select>':""}<div id="st" class="mu"></div><div id="fl" style="margin:8px 0"></div><button id="nw">+ Nuevo cliente</button> ${adm?'<button class="s" id="pf">Profes</button> ':""}<button class="s" id="bp">Copia (CSV)</button><input id="sq" placeholder="Buscar cliente" autocomplete="off" style="margin-top:10px"><div id="ls"></div><button class="s" id="out">Salir</button>`;
+ const paint=()=>{const pm={};cl.forEach(c=>{pm[c.prof||""]=c.profNombre||"Sin profe"});if(PF!=="all"&&!pm[PF])PF="all";
+  if(adm)$("#fp").innerHTML='<option value="all">Todos los profes ('+cl.length+')</option>'+Object.entries(pm).sort((a,b)=>String(a[1]).localeCompare(String(b[1]))).map(([u,n])=>`<option value="${esc(u)}"${PF===u?" selected":""}>${esc(n)} (${cl.filter(c=>(c.prof||"")===u).length})</option>`).join("");
+  const bl=view(),a=bl.filter(c=>!ina(c)).length,i=bl.length-a,d=bl.filter(due).length,v=nz($("#sq").value);
+  $("#st").textContent=`Rutinas: ${bl.length} · Activas: ${a} · Inactivas (+60 días sin abrir): ${i}`;
   $("#fl").innerHTML=[["all","Todos"],["act","Activas"],["ina","Inactivas ("+i+")"],["due","🔔 Consultar ("+d+")"]].map(([k,l])=>`<button class="${F===k?"":"s"}" data-f="${k}">${l}</button>`).join(" ")+(F==="ina"&&i?` <button class="x" id="pg">Eliminar las ${i} inactivas</button>`:"");
-  const L=cl.filter(c=>(F==="all"||(F==="act"&&!ina(c))||(F==="ina"&&ina(c))||(F==="due"&&due(c)))&&(!v||nz([c.nombre,c.apodo,c.objetivo,c.cel,c.profNombre].join(" ")).includes(v))).sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre)));
+  const L=bl.filter(c=>(F==="all"||(F==="act"&&!ina(c))||(F==="ina"&&ina(c))||(F==="due"&&due(c)))&&(!v||nz([c.nombre,c.apodo,c.objetivo,c.cel,c.profNombre].join(" ")).includes(v))).sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre)));
   $("#ls").innerHTML=L.map(c=>`<div class="cd" data-o="${esc(c.id)}" style="cursor:pointer"><b>${esc(c.nombre||"(sin nombre)")}</b>${due(c)?'<span class="tg g">🔔 Consultar</span>':""}${ina(c)?'<span class="tg r">💤 '+Math.floor(dias(c))+' días</span>':""}${unr(c)?'<span class="tg">💬 Nuevo</span>':""}<div class="mu">${esc(c.objetivo||"")}${adm?" · Profe: "+esc(c.profNombre||"-"):""}</div></div>`).join("")||'<p class="mu">No hay clientes en esta vista.</p>'};
  const q=adm?db.collection("clients"):db.collection("clients").where("prof","==",auth.currentUser.uid);
  sub(q.onSnapshot(s=>{cl=s.docs.map(d=>({...d.data(),id:d.id}));CL=cl;paint()},e=>toast(e.message)));
  $("#sq").oninput=paint;
+ if(adm)$("#fp").onchange=e=>{PF=e.target.value;delArm=null;paint()};
  $("#nw").onclick=()=>editor(db.collection("clients").doc().id);
  $("#out").onclick=()=>auth.signOut();
  if(adm)$("#pf").onclick=profsView;
@@ -103,14 +106,18 @@ function coachHome(){rst();let cl=[];const adm=ROLE==="admin";
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+rows.join("\n")],{type:"text/csv"}));a.download="bluehorse-backup.csv";a.click()};
  app.onclick=async e=>{const b=e.target.closest("button"),c=e.target.closest("[data-o]");
   if(b&&b.dataset.f){F=b.dataset.f;delArm=null;return paint()}
-  if(b&&b.id==="pg"){const n=cl.filter(ina);if(delArm!=="pg"){delArm="pg";b.textContent="¿Seguro? Se borran "+n.length+". Tocá otra vez";return}
+  if(b&&b.id==="pg"){const n=view().filter(ina);if(delArm!=="pg"){delArm="pg";b.textContent="¿Seguro? Se borran "+n.length+". Tocá otra vez";return}
    delArm=null;try{for(const x of n)await delClient(x.id);toast("Eliminadas "+n.length)}catch(err){toast(err.message)}return}
   if(!b&&c)editor(c.dataset.o)}}
 
-function profsView(){rst();let ps=[];
+function profsView(){rst();let ps=[],cx=[];
  app.innerHTML=`<button class="s" id="bk">← Clientes</button>`+hdr("Profes","Acceso para crear rutinas")+`<div class="cd"><b>Nuevo profe</b><input id="pn1" placeholder="Nombre"><input id="pe1" type="email" placeholder="Email"><input id="pw1" placeholder="Contraseña (mínimo 6)"><button id="mk">Crear profe</button><div id="mr"></div></div><div id="pl"></div>`;
- sub(db.collection("profs").onSnapshot(s=>{ps=s.docs.map(d=>d.data());const me=auth.currentUser.uid,op=ex=>[{uid:me,nombre:"Administrador (yo)"},...ps].filter(x=>x.uid!==ex).map(x=>`<option value="${esc(x.uid)}">${esc(x.nombre)}</option>`).join("");
-  $("#pl").innerHTML=ps.map(p=>`<div class="cd"><b>${esc(p.nombre)}</b><div class="mu">${esc(p.email)}</div><div class="row" style="margin:8px 0"><select data-to="${esc(p.uid)}">${op(p.uid)}</select><button class="s" data-mv="${esc(p.uid)}">Pasar sus clientes</button></div><button class="x" data-rp="${esc(p.uid)}">Quitar acceso</button></div>`).join("")||'<p class="mu">Todavía no hay profes.</p>'}));
+ const paintP=()=>{const me=auth.currentUser.uid,act=ps.filter(p=>!p.arch),arc=ps.filter(p=>p.arch),op=ex=>[{uid:me,nombre:"Administrador (yo)"},...act].filter(x=>x.uid!==ex).map(x=>`<option value="${esc(x.uid)}">${esc(x.nombre)}</option>`).join("");
+  $("#pl").innerHTML=act.map(p=>{const m=cx.filter(c=>c.prof===p.uid);return `<div class="cd"><b>${esc(p.nombre)}</b><div class="mu">${esc(p.email)} · ${m.length} clientes · ${m.filter(c=>!ina(c)).length} activos</div><div class="row" style="margin:8px 0"><select data-to="${esc(p.uid)}">${op(p.uid)}</select><button class="s" data-mv="${esc(p.uid)}">Pasar sus clientes</button></div><button class="x" data-rp="${esc(p.uid)}">Quitar acceso</button></div>`}).join("")||'<p class="mu">Todavía no hay profes.</p>';
+  if(arc.length)$("#pl").innerHTML+='<div class="mu" style="margin:14px 0 6px">Sin acceso (sus clientes siguen guardados)</div>'+arc.map(p=>`<div class="cd"><b>${esc(p.nombre)}</b><div class="mu">${esc(p.email)} · ${cx.filter(c=>c.prof===p.uid).length} clientes</div><button class="s" data-ra="${esc(p.uid)}">Reactivar</button></div>`).join("")};
+ sub(db.collection("profs").onSnapshot(s=>{ps=s.docs.map(d=>d.data());paintP()}));
+ sub(db.collection("clients").onSnapshot(s=>{cx=s.docs.map(d=>d.data());paintP()},()=>{}));
+ const tr=e=>({"auth/weak-password":"La contraseña es muy débil (mínimo 6 caracteres).","auth/invalid-email":"Ese email no es válido.","auth/network-request-failed":"Sin conexión. Probá de nuevo."})[e.code]||e.message;
  app.onclick=async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
   try{
   if(b.id==="bk")return coachHome();
@@ -118,13 +125,24 @@ function profsView(){rst();let ps=[];
    if(!s.size)return toast("Ese profe no tiene clientes");
    if(delArm!=="mv"+d.mv){delArm="mv"+d.mv;b.textContent="¿Pasar "+s.size+" a "+nm+"? Tocá otra vez";return}
    delArm=null;const ds=s.docs;for(let i=0;i<ds.length;i+=400){const bt=db.batch();ds.slice(i,i+400).forEach(x=>bt.update(x.ref,{prof:to,profNombre:nm}));await bt.commit()}toast("Pasados "+ds.length+" clientes a "+nm);b.textContent="Pasar sus clientes"}
-  if(d.rp){const n=(await db.collection("clients").where("prof","==",d.rp).get()).size;if(delArm!==d.rp){delArm=d.rp;b.textContent=n?"Tiene "+n+" clientes · tocá otra vez para quitar igual":"¿Seguro? Tocá otra vez";return}delArm=null;await db.collection("profs").doc(d.rp).delete();toast("Acceso quitado")}
+  if(d.rp){const n=(await db.collection("clients").where("prof","==",d.rp).get()).size;if(delArm!==d.rp){delArm=d.rp;b.textContent=n?"Tiene "+n+" clientes · tocá otra vez para quitar igual":"¿Seguro? Tocá otra vez";return}
+   delArm=null;const p=ps.find(x=>x.uid===d.rp&&!x.arch),bt=db.batch();bt.set(db.collection("profs").doc("arch_"+d.rp),{uid:d.rp,nombre:p.nombre,email:p.email,arch:true,t:Date.now()});bt.delete(db.collection("profs").doc(d.rp));await bt.commit();toast("Acceso quitado. Lo podés reactivar cuando quieras")}
+  if(d.ra){const p=ps.find(x=>x.uid===d.ra&&x.arch),bt=db.batch();bt.set(db.collection("profs").doc(d.ra),{uid:d.ra,nombre:p.nombre,email:p.email,t:Date.now()});bt.delete(db.collection("profs").doc("arch_"+d.ra));await bt.commit();toast("Profe reactivado")}
+  if(d.rs){await sec.auth().sendPasswordResetEmail(d.rs);toast("Le mandé el email a "+d.rs)}
   if(b.id==="mk"){const n=$("#pn1").value.trim(),em=$("#pe1").value.trim().toLowerCase(),pw=$("#pw1").value;if(!n||!em||pw.length<6)return toast("Completá nombre, email y contraseña (mínimo 6)");
-   const c=await sec.auth().createUserWithEmailAndPassword(em,pw);await sec.auth().signOut();await db.collection("profs").doc(c.user.uid).set({uid:c.user.uid,nombre:n,email:em,t:Date.now()});
+   const ex=ps.find(x=>(x.email||"").toLowerCase()===em);
+   if(ex&&!ex.arch)return toast("Ese profe ya tiene acceso");
+   if(ex){const bt=db.batch();bt.set(db.collection("profs").doc(ex.uid),{uid:ex.uid,nombre:n,email:em,t:Date.now()});bt.delete(db.collection("profs").doc("arch_"+ex.uid));await bt.commit();return toast("Ese profe ya existía: lo reactivé con sus clientes. Entra con su contraseña de siempre.")}
+   let uid;
+   try{uid=(await sec.auth().createUserWithEmailAndPassword(em,pw)).user.uid}
+   catch(err){if(err.code!=="auth/email-already-in-use")throw err;
+    try{uid=(await sec.auth().signInWithEmailAndPassword(em,pw)).user.uid}
+    catch(e2){$("#mr").innerHTML=`<div class="cd"><div class="mu">Ese email ya tiene una cuenta con otra contraseña. Escribí la que usó antes, o mandale un email para que cree una nueva y cargala acá.</div><button class="s" data-rs="${esc(em)}">Enviarle email para crear contraseña</button></div>`;return}}
+   await sec.auth().signOut();await db.collection("profs").doc(uid).set({uid,nombre:n,email:em,t:Date.now()});
    const msg=`Hola ${n}! Ya podés crear rutinas en Blue Horse Gym. Entrá a ${base()} con tu email ${em} y la contraseña ${pw}`;
    $("#mr").innerHTML=`<div class="cd"><a class="bt" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">Enviar por WhatsApp</a> <button class="s" id="cp">Copiar mensaje</button></div>`;
    $("#cp").onclick=()=>navigator.clipboard.writeText(msg).then(()=>toast("Copiado"))}
-  }catch(err){toast(err.message)}}}
+  }catch(err){toast(tr(err))}}}
 
 const TP={
 P:[["Sentadilla","8-10","90s",1],["Prensa 45°","10-12","90s",1],["Zancadas caminando","10 c/pierna","60s",0],["Hip thrust","10-12","90s",1],["Abducción en máquina","15","45s",0],["Elevación de talones","15","45s",0]],
