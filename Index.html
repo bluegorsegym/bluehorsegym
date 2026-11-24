@@ -183,11 +183,11 @@ const arpHtml=()=>`<div class="cd"><b>✨ Armar rutina</b><div class="mu">Es una
  <div><button class="s" id="aw_x">Cerrar</button></div></div>`;
 function editor(id){rst();logs=[];msgs=[];const ref=db.collection("clients").doc(id);
  Promise.all([ref.get(),ROLE==="admin"?db.collection("profs").get().then(q=>{PL=q.docs.map(d=>d.data())}).catch(()=>{}):0]).then(([s])=>{cur=s.exists?{...s.data()}:{nombre:"",cel:"",objetivo:"",pin:"",profNombre:PN,days:[{t:"Día 1",ex:[]}],desde:Date.now()};cur.id=id;
-  sub(ref.collection("logs").orderBy("t","desc").limit(30).onSnapshot(s=>{logs=s.docs.map(d=>d.data());paintLg()},()=>{}));
+  sub(ref.collection("logs").orderBy("t","desc").limit(50).onSnapshot(s=>{logs=s.docs.map(d=>({...d.data(),id:d.id}));paintLg()},()=>{}));
   sub(ref.collection("msgs").orderBy("t").onSnapshot(s=>{msgs=s.docs.map(d=>d.data());paintM("p");const l=msgs[msgs.length-1];
    if(l&&l.from==="c"&&l.t>(cur.leidoP||0)){cur.leidoP=Date.now();ref.update({leidoP:cur.leidoP}).catch(()=>{})}},()=>{}));
   draw(ref)}).catch(e=>toast(e.message))}
-function paintLg(){const el=$("#lg");if(el)el.innerHTML=logs.map(l=>`<div class="mu">${new Date(l.t).toLocaleDateString("es-AR")} · ${esc(l.n)}: ${esc(l.kg||"-")} kg × ${esc(l.reps||"-")}</div>`).join("")||'<div class="mu">Todavía no cargó pesos.</div>'}
+function paintLg(){const el=$("#lg");if(el)el.innerHTML=logs.map(l=>`<div class="row" style="justify-content:space-between;margin:2px 0"><span class="mu">${new Date(l.t).toLocaleDateString("es-AR")} · ${esc(l.n)}: ${esc(l.kg||"-")} kg × ${esc(l.reps||"-")}</span><button class="x" data-dl="${esc(l.id)}" style="padding:2px 10px;margin:0" aria-label="Borrar registro">🗑</button></div>`).join("")||'<div class="mu">Todavía no cargó pesos.</div>'}
 function paintM(me){const el=$("#ch");if(!el)return;el.innerHTML=msgs.map(m=>`<div class="b ${m.from===me?"me":"ot"}">${esc(m.tx)}</div>`).join("");el.scrollTop=el.scrollHeight}
 const save=ref=>{const{visto,ultMsgC,leidoP,ultCons,...r}=cur;cur.prof=cur.prof||auth.currentUser.uid;cur.profNombre=cur.profNombre||PN;
  return ref.set({...r,prof:cur.prof,profNombre:cur.profNombre,upd:Date.now()},{merge:true})};
@@ -209,6 +209,7 @@ function draw(ref){
  app.onclick=async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
   try{
   if(b.id==="bk")return coachHome();
+  if(d.dl){if(delArm!=="dl"+d.dl){delArm="dl"+d.dl;b.textContent="¿Borrar?";return}delArm=null;await ref.collection("logs").doc(d.dl).delete();toast("Registro borrado");return}
   if(b.id==="ar"){$("#arp").innerHTML=arpHtml();return}
   if(b.id==="aw_x"){$("#arp").innerHTML="";return}
   if(b.id==="aw_g")return add(gen(+$("#aw_d").value,$("#aw_o").value,+$("#aw_n").value,$("#aw_l").value));
@@ -226,7 +227,7 @@ function draw(ref){
   if(d.rd!==undefined){cur.days.splice(d.rd,1);return draw(ref)}
   if(b.id==="ad"){cur.days.push({t:"Día "+(cur.days.length+1),ex:[]});return draw(ref)}
   if(b.id==="sv"){await save(ref);toast("✔ Guardado")}
-  if(b.id==="sh"){await save(ref);const link=base()+"#c="+cur.id,msg=`Hola ${fn(cur)}! Tu rutina de ${cur.profNombre||PN} está acá: ${link}`+(cur.pin?` (PIN: ${cur.pin})`:"");
+  if(b.id==="sh"){await save(ref);const link=base()+"#c="+cur.id,msg=`Hola ${fn(cur)}! Tu rutina de ${cur.profNombre||PN} está acá: ${link}`+(cur.pin?` (PIN: ${cur.pin})`:"")+'\n\n📲 Tip: abrila en Chrome (o Safari en iPhone) y agregala a tu pantalla de inicio: ⋮ → "Agregar a la pantalla de inicio".';
    $("#shp").innerHTML=`<div class="cd"><a class="bt" target="_blank" rel="noopener" href="https://wa.me/${(cur.cel||"").replace(/\D/g,"")}?text=${encodeURIComponent(msg)}">Enviar por WhatsApp</a> <button class="s" id="cp">Copiar mensaje</button></div>`;
    $("#cp").onclick=()=>navigator.clipboard.writeText(msg).then(()=>toast("Copiado"))}
   if(b.id==="cw"){window.open(`https://wa.me/${(cur.cel||"").replace(/\D/g,"")}?text=${encodeURIComponent(consulta()+" Respondeme por acá o en la app: "+base()+"#c="+cur.id)}`,"_blank");cur.ultCons=Date.now();await ref.update({ultCons:cur.ultCons});draw(ref)}
@@ -241,7 +242,7 @@ function clientView(id){rst();logs=[];msgs=[];selDay=-1;G={};let tch=false;const
   cur=s.data();cur.id=id;const cl=isCoach(auth.currentUser);
   if(!tch&&!cl){tch=true;if(Date.now()-(cur.visto||0)>6*36e5)ref.update({visto:Date.now()}).catch(()=>{})}
   if(cur.pin&&unl!==id&&!cl)pinView();else cview(ref)},e=>app.innerHTML="<p>No se pudo cargar: "+esc(e.message)+"</p>"));
- sub(ref.collection("logs").orderBy("t","desc").limit(300).onSnapshot(s=>{logs=s.docs.map(d=>d.data());paintLast()},()=>{}));
+ sub(ref.collection("logs").orderBy("t","desc").limit(300).onSnapshot(s=>{logs=s.docs.map(d=>({...d.data(),id:d.id}));paintLast()},()=>{}));
  sub(ref.collection("msgs").orderBy("t").onSnapshot(s=>{msgs=s.docs.map(d=>d.data());paintM("c")},()=>{}))}
 function pinView(){app.onclick=app.oninput=app.onchange=null;
  app.innerHTML=big("Tu rutina","Profe: "+esc(cur.profNombre||""))+`<div class="cd"><p class="mu">Ingresá el PIN que te dio tu profe.</p><input id="pn" inputmode="numeric" placeholder="PIN"><button id="pg">Entrar</button><div id="pe" class="mu" style="color:var(--rd)"></div></div>`;
@@ -255,15 +256,20 @@ function chart(n){const p=logs.filter(l=>l.n===n&&!isNaN(parseFloat(l.kg))).sort
  if(p.length<2)return '<div class="mu">Cargá al menos 2 registros de peso para ver tu evolución.</div>';
  const W=300,H=110,pd=24,mn=Math.min(...p.map(x=>x.v)),mx=Math.max(...p.map(x=>x.v)),r=mx-mn||1,t0=p[0].t,t1=p[p.length-1].t,tr=t1-t0||1,X=t=>pd+(W-2*pd)*(t-t0)/tr,Y=v=>H-pd-(H-2*pd)*(v-mn)/r,f=t=>new Date(t).toLocaleDateString("es-AR");
  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Evolución de tus kilos"><polyline points="${p.map(x=>X(x.t).toFixed(1)+","+Y(x.v).toFixed(1)).join(" ")}" fill="none" style="stroke:var(--ac)" stroke-width="2.5"/>${p.map(x=>`<circle cx="${X(x.t).toFixed(1)}" cy="${Y(x.v).toFixed(1)}" r="3.5" style="fill:var(--ac)"/>`).join("")}<text x="4" y="${Y(mx)+4}" font-size="10" style="fill:var(--mu)">${mx}</text><text x="4" y="${Y(mn)+4}" font-size="10" style="fill:var(--mu)">${mn}</text><text x="${pd}" y="${H-6}" font-size="10" style="fill:var(--mu)">${f(t0)}</text><text x="${W-pd}" y="${H-6}" font-size="10" text-anchor="end" style="fill:var(--mu)">${f(t1)}</text></svg><div class="mu">Kilos registrados</div>`}
-function paintG(){app.querySelectorAll("[data-gr]").forEach(el=>{const k=el.dataset.gr,[i,j]=k.split("-"),x=cur.days&&cur.days[i]&&cur.days[i].ex[j];el.style.display=G[k]?"":"none";if(G[k]&&x)el.innerHTML=chart(x.n)})}
+const recent=n=>{const r=logs.filter(l=>l.n===n&&Date.now()-l.t<DAY);return r.length?'<div class="mu" style="margin-top:8px">Cargados en las últimas 24 h (podés borrar si te equivocaste):</div>'+r.map(l=>`<div class="row" style="justify-content:space-between;margin:2px 0"><span class="mu">${new Date(l.t).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} · ${esc(l.kg||"-")} kg × ${esc(l.reps||"-")}</span><button class="x" data-dl="${esc(l.id)}" style="padding:2px 10px;margin:0" aria-label="Borrar registro">🗑</button></div>`).join(""):""};
+function paintG(){app.querySelectorAll("[data-gr]").forEach(el=>{const k=el.dataset.gr,[i,j]=k.split("-"),x=cur.days&&cur.days[i]&&cur.days[i].ex[j];el.style.display=G[k]?"":"none";if(G[k]&&x)el.innerHTML=chart(x.n)+recent(x.n)})}
 function sm(){const d=cur.days&&cur.days[selDay];if(!d||!$("#sm"))return;const done=ld(),n=d.ex.filter((_,j)=>done[selDay+"-"+j]).length;
  $("#sm").textContent="Hechos hoy: "+n+" de "+d.ex.length;$("#pbi").style.width=(d.ex.length?n/d.ex.length*100:0)+"%";
  app.querySelectorAll("[data-dy]").forEach(b=>{const i=+b.dataset.dy,dd=cur.days[i];b.textContent=dd.t+(dd.ex.length&&dd.ex.every((_,j)=>done[i+"-"+j])?" ✓":"")})}
+const inst=()=>{try{if(localStorage.getItem("bh:inst"))return""}catch(e){}
+ if(isCoach(auth.currentUser)||matchMedia("(display-mode: standalone)").matches||navigator.standalone)return"";
+ const ua=navigator.userAgent,ios=/iPhone|iPad|iPod/.test(ua),web=/FBAN|FBAV|Instagram|WhatsApp|; wv\)/i.test(ua)||(ios&&!/Safari/.test(ua));
+ return `<div class="cd" style="border-style:dashed"><b>📲 Guardá tu rutina en la pantalla de inicio</b><div class="mu" style="margin:4px 0 8px">${web?"Abrí este link en "+(ios?"Safari":"Chrome")+" (menú ⋮ → Abrir en el navegador) y después ":""}${ios?"tocá Compartir ⬆ y elegí «Agregar a inicio».":"tocá ⋮ (arriba a la derecha) y elegí «Agregar a la pantalla de inicio»."}</div><button class="s" data-inst="1">Listo, ya está</button></div>`};
 function cview(ref){const done=ld();
  if(selDay<0){try{selDay=+(localStorage.getItem("bh:day:"+cur.id)||0)}catch(e){selDay=0}}
  if(!cur.days[selDay])selDay=0;
  const i=selDay,d=cur.days[i]||{t:"",ex:[]};
- app.innerHTML=hdr("¡Hola "+esc(fn(cur))+"!","Profe: "+esc(cur.profNombre||""))+`<p class="mu">${esc(cur.objetivo||"")}</p>
+ app.innerHTML=hdr("¡Hola "+esc(fn(cur))+"!","Profe: "+esc(cur.profNombre||""))+`<p class="mu">${esc(cur.objetivo||"")}</p>${inst()}
  <div class="dys">${cur.days.map((x,k)=>`<button class="${k===i?"":"s"}" data-dy="${k}">${esc(x.t)}</button>`).join("")}</div>
  <div class="cd"><b>${esc(d.t)}</b><div class="mu" id="sm"></div><div class="pb"><i id="pbi"></i></div>
  ${d.ex.map((x,j)=>{const k=i+"-"+j;return `<div class="ex2${done[k]?" done":""}"><b class="nm">${esc(x.n)}</b> <span class="mu">${esc(x.s)} × ${esc(x.r)}${x.p?" · Pausa "+esc(x.p):""}</span>
@@ -277,12 +283,14 @@ function cview(ref){const done=ld();
  app.onchange=e=>{const t=e.target,k=t.dataset.ck;if(!k)return;const o=ld();o[k]=t.checked;sd(o);t.closest(".ex2").classList.toggle("done",t.checked);sm()};
  app.onclick=async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
   try{
+  if(d.inst){try{localStorage.setItem("bh:inst","1")}catch(x){}b.closest(".cd").remove();return}
+  if(d.dl){if(delArm!=="dl"+d.dl){delArm="dl"+d.dl;b.textContent="¿Borrar?";return}delArm=null;await ref.collection("logs").doc(d.dl).delete();toast("Registro borrado");return}
   if(d.dy!==undefined){selDay=+d.dy;try{localStorage.setItem("bh:day:"+cur.id,selDay)}catch(x){}return cview(ref)}
   if(d.g){G[d.g]=!G[d.g];return paintG()}
   if(d.sv){const[i,j]=d.sv.split("-"),k=$("#k"+d.sv).value,r=$("#r"+d.sv).value;if(!k&&!r)return;
-   await ref.collection("logs").add({n:cur.days[i].ex[j].n,kg:k,reps:r,t:Date.now()});$("#k"+d.sv).value=$("#r"+d.sv).value="";toast("✔ Guardado")}
+   const nm=cur.days[i].ex[j].n;if(logs.some(l=>l.n===nm&&String(l.kg)===String(k)&&String(l.reps)===String(r)&&Date.now()-l.t<30000))return toast("Ese registro ya está cargado.");if(b.dataset.busy)return;b.dataset.busy=1;try{await ref.collection("logs").add({n:nm,kg:k,reps:r,t:Date.now()})}finally{delete b.dataset.busy}$("#k"+d.sv).value=$("#r"+d.sv).value="";toast("✔ Guardado")}
   if(b.id==="ms"){const v=$("#mt").value.trim();if(v){$("#mt").value="";await ref.collection("msgs").add({from:"c",tx:v,t:Date.now()});ref.update({ultMsgC:Date.now()}).catch(()=>{})}}
-  }catch(err){toast("Error: "+err.message)}}}
+  }catch(err){toast(err.code==="permission-denied"?"Solo se pueden borrar registros de las últimas 24 horas.":"Error: "+err.message)}}}
 function paintLast(){app.querySelectorAll("[data-last]").forEach(el=>{const[i,j]=el.dataset.last.split("-"),x=cur.days&&cur.days[i]&&cur.days[i].ex[j],l=x&&logs.find(l=>l.n===x.n);
  el.textContent=l?`Última vez: ${l.kg||"-"} kg × ${l.reps||"-"} (${new Date(l.t).toLocaleDateString("es-AR")})`:""});paintG()}
 </script></body></html>
