@@ -252,10 +252,13 @@ const dk=()=>"bh:"+cur.id+":"+new Date().toLocaleDateString("sv-SE");
 const ld=()=>{try{return JSON.parse(localStorage.getItem(dk())||"{}")}catch(e){return{}}};
 const sd=o=>{try{localStorage.setItem(dk(),JSON.stringify(o))}catch(e){}};
 const vid=x=>{const v=String(x.v||"").trim();return /^https?:\/\//i.test(v)?v:"https://www.youtube.com/results?search_query="+encodeURIComponent((x.n||"")+" ejercicio técnica")};
-function chart(n){const p=logs.filter(l=>l.n===n&&!isNaN(parseFloat(l.kg))).sort((a,b)=>a.t-b.t).map(l=>({t:l.t,v:parseFloat(l.kg)}));
- if(p.length<2)return '<div class="mu">Cargá al menos 2 registros de peso para ver tu evolución.</div>';
+const dkey=t=>new Date(t).toLocaleDateString("sv-SE");
+const sess=n=>{const m={};logs.filter(l=>l.n===n).sort((a,b)=>a.t-b.t).forEach(l=>{const k=dkey(l.t);(m[k]=m[k]||[]).push(l)});return m};
+const sets=a=>a.map(l=>(l.kg||"-")+" kg × "+(l.reps||"-")).join(" · ");
+function chart(n){const m=sess(n),p=Object.keys(m).sort().map(k=>{const a=m[k].map(l=>parseFloat(l.kg)).filter(v=>!isNaN(v));return a.length?{t:m[k][0].t,v:Math.max(...a)}:null}).filter(Boolean);
+ if(p.length<2)return '<div class="mu">Necesitás registros de al menos 2 días distintos para ver tu evolución.</div>';
  const W=300,H=110,pd=24,mn=Math.min(...p.map(x=>x.v)),mx=Math.max(...p.map(x=>x.v)),r=mx-mn||1,t0=p[0].t,t1=p[p.length-1].t,tr=t1-t0||1,X=t=>pd+(W-2*pd)*(t-t0)/tr,Y=v=>H-pd-(H-2*pd)*(v-mn)/r,f=t=>new Date(t).toLocaleDateString("es-AR");
- return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Evolución de tus kilos"><polyline points="${p.map(x=>X(x.t).toFixed(1)+","+Y(x.v).toFixed(1)).join(" ")}" fill="none" style="stroke:var(--ac)" stroke-width="2.5"/>${p.map(x=>`<circle cx="${X(x.t).toFixed(1)}" cy="${Y(x.v).toFixed(1)}" r="3.5" style="fill:var(--ac)"/>`).join("")}<text x="4" y="${Y(mx)+4}" font-size="10" style="fill:var(--mu)">${mx}</text><text x="4" y="${Y(mn)+4}" font-size="10" style="fill:var(--mu)">${mn}</text><text x="${pd}" y="${H-6}" font-size="10" style="fill:var(--mu)">${f(t0)}</text><text x="${W-pd}" y="${H-6}" font-size="10" text-anchor="end" style="fill:var(--mu)">${f(t1)}</text></svg><div class="mu">Kilos registrados</div>`}
+ return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Evolución de tus kilos"><polyline points="${p.map(x=>X(x.t).toFixed(1)+","+Y(x.v).toFixed(1)).join(" ")}" fill="none" style="stroke:var(--ac)" stroke-width="2.5"/>${p.map(x=>`<circle cx="${X(x.t).toFixed(1)}" cy="${Y(x.v).toFixed(1)}" r="3.5" style="fill:var(--ac)"/>`).join("")}<text x="4" y="${Y(mx)+4}" font-size="10" style="fill:var(--mu)">${mx}</text><text x="4" y="${Y(mn)+4}" font-size="10" style="fill:var(--mu)">${mn}</text><text x="${pd}" y="${H-6}" font-size="10" style="fill:var(--mu)">${f(t0)}</text><text x="${W-pd}" y="${H-6}" font-size="10" text-anchor="end" style="fill:var(--mu)">${f(t1)}</text></svg><div class="mu">Peso más alto de cada día</div>`}
 const recent=n=>{const r=logs.filter(l=>l.n===n&&Date.now()-l.t<DAY);return r.length?'<div class="mu" style="margin-top:8px">Cargados en las últimas 24 h (podés borrar si te equivocaste):</div>'+r.map(l=>`<div class="row" style="justify-content:space-between;margin:2px 0"><span class="mu">${new Date(l.t).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} · ${esc(l.kg||"-")} kg × ${esc(l.reps||"-")}</span><button class="x" data-dl="${esc(l.id)}" style="padding:2px 10px;margin:0" aria-label="Borrar registro">🗑</button></div>`).join(""):""};
 function paintG(){app.querySelectorAll("[data-gr]").forEach(el=>{const k=el.dataset.gr,[i,j]=k.split("-"),x=cur.days&&cur.days[i]&&cur.days[i].ex[j];el.style.display=G[k]?"":"none";if(G[k]&&x)el.innerHTML=chart(x.n)+recent(x.n)})}
 function sm(){const d=cur.days&&cur.days[selDay];if(!d||!$("#sm"))return;const done=ld(),n=d.ex.filter((_,j)=>done[selDay+"-"+j]).length;
@@ -291,6 +294,9 @@ function cview(ref){const done=ld();
    const nm=cur.days[i].ex[j].n;if(logs.some(l=>l.n===nm&&String(l.kg)===String(k)&&String(l.reps)===String(r)&&Date.now()-l.t<30000))return toast("Ese registro ya está cargado.");if(b.dataset.busy)return;b.dataset.busy=1;try{await ref.collection("logs").add({n:nm,kg:k,reps:r,t:Date.now()})}finally{delete b.dataset.busy}$("#k"+d.sv).value=$("#r"+d.sv).value="";toast("✔ Guardado")}
   if(b.id==="ms"){const v=$("#mt").value.trim();if(v){$("#mt").value="";await ref.collection("msgs").add({from:"c",tx:v,t:Date.now()});ref.update({ultMsgC:Date.now()}).catch(()=>{})}}
   }catch(err){toast(err.code==="permission-denied"?"Solo se pueden borrar registros de las últimas 24 horas.":"Error: "+err.message)}}}
-function paintLast(){app.querySelectorAll("[data-last]").forEach(el=>{const[i,j]=el.dataset.last.split("-"),x=cur.days&&cur.days[i]&&cur.days[i].ex[j],l=x&&logs.find(l=>l.n===x.n);
- el.textContent=l?`Última vez: ${l.kg||"-"} kg × ${l.reps||"-"} (${new Date(l.t).toLocaleDateString("es-AR")})`:""});paintG()}
+function paintLast(){app.querySelectorAll("[data-last]").forEach(el=>{const[i,j]=el.dataset.last.split("-"),x=cur.days&&cur.days[i]&&cur.days[i].ex[j];if(!x){el.textContent="";return}
+ const m=sess(x.n),td=dkey(Date.now()),pv=Object.keys(m).sort().filter(k=>k<td).pop(),h=[];
+ if(m[td])h.push("Hoy: "+sets(m[td]));
+ if(pv)h.push("Última vez ("+new Date(m[pv][0].t).toLocaleDateString("es-AR",{day:"numeric",month:"numeric"})+"): "+sets(m[pv]));
+ el.innerHTML=h.map(esc).join("<br>")});paintG()}
 </script></body></html>
