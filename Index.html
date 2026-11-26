@@ -58,7 +58,7 @@ const fn=c=>String(c.apodo||"").trim()||String(c.nombre||"").trim().split(/\s+/)
 const LOGO=$("#ic").href;document.head.insertAdjacentHTML("beforeend",`<link rel="apple-touch-icon" href="${LOGO}">`);
 const hdr=(t,s)=>`<div class="hd"><img src="${LOGO}" alt=""><div><h1>${t}</h1>${s?`<div class="mu">${s}</div>`:""}</div></div>`;
 const big=(t,s)=>`<div style="text-align:center;margin:18px 0 20px"><img src="${LOGO}" alt="" style="width:104px;height:104px;border-radius:22px;object-fit:cover;background:#000;box-shadow:0 6px 20px rgba(0,0,0,.25)"><h1 style="margin-top:12px;font-size:30px">${t}</h1>${s?`<div class="mu" style="margin-top:4px">${s}</div>`:""}</div>`;
-let U=[],cur={},unl=null,delArm=null,logs=[],msgs=[],ROLE=null,PN="",F="all",PL=[],CL=[],PF="all",selDay=-1,G={};
+let U=[],cur={},unl=null,delArm=null,logs=[],msgs=[],ROLE=null,PN="",F="all",PL=[],CL=[],PF="",MYT=[],selDay=-1,G={};
 const DAY=864e5,dias=c=>(Date.now()-(c.visto||c.desde||0))/DAY,ina=c=>dias(c)>=60,due=c=>(Date.now()-(c.ultCons||c.desde||0))/DAY>=30,unr=c=>(c.ultMsgC||0)>(c.leidoP||0);
 const clr=()=>{U.forEach(u=>u());U=[]},sub=u=>U.push(u);
 const rst=()=>{clr();app.onclick=app.oninput=app.onchange=null};
@@ -85,19 +85,19 @@ async function delClient(id){const ref=db.collection("clients").doc(id),r=[];
  for(const n of["logs","msgs"])(await ref.collection(n).get()).forEach(x=>r.push(x.ref));r.push(ref);
  for(let i=0;i<r.length;i+=400){const bt=db.batch();r.slice(i,i+400).forEach(x=>bt.delete(x));await bt.commit()}}
 
-function coachHome(){rst();let cl=[];const adm=ROLE==="admin",view=()=>adm&&PF!=="all"?cl.filter(c=>(c.prof||"")===PF):cl;
- app.innerHTML=hdr("Mis clientes",esc(PN)+(adm?" · Admin":""))+`${adm?'<select id="fp"></select>':""}<div id="st" class="mu"></div><div id="fl" style="margin:8px 0"></div><button id="nw">+ Nuevo cliente</button> ${adm?'<button class="s" id="pf">Profes</button> ':""}<button class="s" id="bp">Copia (CSV)</button><input id="sq" placeholder="Buscar cliente" autocomplete="off" style="margin-top:10px"><div id="ls"></div><button class="s" id="out">Salir</button>`;
- const paint=()=>{const pm={};cl.forEach(c=>{pm[c.prof||""]=c.profNombre||"Sin profe"});if(PF!=="all"&&!pm[PF])PF="all";
-  if(adm)$("#fp").innerHTML='<option value="all">Todos los profes ('+cl.length+')</option>'+Object.entries(pm).sort((a,b)=>String(a[1]).localeCompare(String(b[1]))).map(([u,n])=>`<option value="${esc(u)}"${PF===u?" selected":""}>${esc(n)} (${cl.filter(c=>(c.prof||"")===u).length})</option>`).join("");
-  const bl=view(),a=bl.filter(c=>!ina(c)).length,i=bl.length-a,d=bl.filter(due).length,v=nz($("#sq").value);
-  $("#st").textContent=`Rutinas: ${bl.length} · Activas: ${a} · Inactivas (+60 días sin abrir): ${i}`;
+function coachHome(){rst();let cl=[],ps=[];const adm=ROLE==="admin",me=auth.currentUser.uid;if(adm&&!PF)PF=me;
+ app.innerHTML=hdr("Mis clientes",esc(PN)+(adm?" · Admin":""))+`${adm?'<select id="fp"></select>':""}<div id="st" class="mu"></div><div id="fl" style="margin:8px 0"></div><button id="nw">+ Nuevo cliente</button> ${adm?'<button class="s" id="pf">Profes</button> ':""}<button class="s" id="bp">Copia (CSV)</button><input id="sq" placeholder="Buscar cliente" autocomplete="off" style="margin-top:10px"><div id="hn" class="mu"></div><div id="ls"></div><button class="s" id="out">Salir</button>`;
+ const paint=()=>{const a=cl.filter(c=>!ina(c)).length,i=cl.length-a,d=cl.filter(due).length,v=nz($("#sq").value);
+  $("#st").textContent=`Rutinas: ${cl.length} · Activas: ${a} · Inactivas (+60 días sin abrir): ${i}`;
   $("#fl").innerHTML=[["all","Todos"],["act","Activas"],["ina","Inactivas ("+i+")"],["due","🔔 Consultar ("+d+")"]].map(([k,l])=>`<button class="${F===k?"":"s"}" data-f="${k}">${l}</button>`).join(" ")+(F==="ina"&&i?` <button class="x" id="pg">Eliminar las ${i} inactivas</button>`:"");
-  const L=bl.filter(c=>(F==="all"||(F==="act"&&!ina(c))||(F==="ina"&&ina(c))||(F==="due"&&due(c)))&&(!v||nz([c.nombre,c.apodo,c.objetivo,c.cel,c.profNombre].join(" ")).includes(v))).sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre)));
+  $("#hn").textContent=adm&&PF!=="all"?"Buscás solo entre los clientes del profe elegido. Para buscar en todos, elegí «Todos los clientes».":"";
+  const L=cl.filter(c=>(F==="all"||(F==="act"&&!ina(c))||(F==="ina"&&ina(c))||(F==="due"&&due(c)))&&(!v||nz([c.nombre,c.apodo,c.objetivo,c.cel,c.profNombre].join(" ")).includes(v))).sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre)));
   $("#ls").innerHTML=L.map(c=>`<div class="cd" data-o="${esc(c.id)}" style="cursor:pointer"><b>${esc(c.nombre||"(sin nombre)")}</b>${due(c)?'<span class="tg g">🔔 Consultar</span>':""}${ina(c)?'<span class="tg r">💤 '+Math.floor(dias(c))+' días</span>':""}${unr(c)?'<span class="tg">💬 Nuevo</span>':""}<div class="mu">${esc(c.objetivo||"")}${adm?" · Profe: "+esc(c.profNombre||"-"):""}</div></div>`).join("")||'<p class="mu">No hay clientes en esta vista.</p>'};
- const q=adm?db.collection("clients"):db.collection("clients").where("prof","==",auth.currentUser.uid);
- sub(q.onSnapshot(s=>{cl=s.docs.map(d=>({...d.data(),id:d.id}));CL=cl;paint()},e=>toast(e.message)));
+ const load=()=>{clr();cl=[];$("#ls").innerHTML='<p class="mu">Cargando…</p>';
+  const q=!adm?db.collection("clients").where("prof","==",me):PF==="all"?db.collection("clients"):db.collection("clients").where("prof","==",PF);
+  sub(q.onSnapshot(s=>{cl=s.docs.map(d=>({...d.data(),id:d.id}));CL=cl;paint()},e=>toast(e.message)))};
+ const sel=()=>{$("#fp").innerHTML=[{uid:me,nombre:"Administrador (yo)"},...ps].map(p=>`<option value="${esc(p.uid)}"${PF===p.uid?" selected":""}>${esc(p.nombre)}${p.arch?" (sin acceso)":""}</option>`).join("")+`<option value="all"${PF==="all"?" selected":""}>Todos los clientes (carga más lenta)</option>`};
  $("#sq").oninput=paint;
- if(adm)$("#fp").onchange=e=>{PF=e.target.value;delArm=null;paint()};
  $("#nw").onclick=()=>editor(db.collection("clients").doc().id);
  $("#out").onclick=()=>auth.signOut();
  if(adm)$("#pf").onclick=profsView;
@@ -106,25 +106,30 @@ function coachHome(){rst();let cl=[];const adm=ROLE==="admin",view=()=>adm&&PF!=
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+rows.join("\n")],{type:"text/csv"}));a.download="bluehorse-backup.csv";a.click()};
  app.onclick=async e=>{const b=e.target.closest("button"),c=e.target.closest("[data-o]");
   if(b&&b.dataset.f){F=b.dataset.f;delArm=null;return paint()}
-  if(b&&b.id==="pg"){const n=view().filter(ina);if(delArm!=="pg"){delArm="pg";b.textContent="¿Seguro? Se borran "+n.length+". Tocá otra vez";return}
+  if(b&&b.id==="pg"){const n=cl.filter(ina);if(delArm!=="pg"){delArm="pg";b.textContent="¿Seguro? Se borran "+n.length+". Tocá otra vez";return}
    delArm=null;try{for(const x of n)await delClient(x.id);toast("Eliminadas "+n.length)}catch(err){toast(err.message)}return}
-  if(!b&&c)editor(c.dataset.o)}}
+  if(!b&&c)editor(c.dataset.o)};
+ if(adm){$("#fp").onchange=e=>{PF=e.target.value;delArm=null;load()};db.collection("profs").get().then(s=>{ps=s.docs.map(d=>d.data());sel();load()}).catch(()=>{sel();load()})}else load()}
 
-function profsView(){rst();let ps=[],cx=[];
- app.innerHTML=`<button class="s" id="bk">← Clientes</button>`+hdr("Profes","Acceso para crear rutinas")+`<div class="cd"><b>Nuevo profe</b><input id="pn1" placeholder="Nombre"><input id="pe1" type="email" placeholder="Email"><input id="pw1" placeholder="Contraseña (mínimo 6)"><button id="mk">Crear profe</button><div id="mr"></div></div><div id="pl"></div>`;
- const paintP=()=>{const me=auth.currentUser.uid,act=ps.filter(p=>!p.arch),arc=ps.filter(p=>p.arch),op=ex=>[{uid:me,nombre:"Administrador (yo)"},...act].filter(x=>x.uid!==ex).map(x=>`<option value="${esc(x.uid)}">${esc(x.nombre)}</option>`).join("");
-  $("#pl").innerHTML=act.map(p=>{const m=cx.filter(c=>c.prof===p.uid);return `<div class="cd"><b>${esc(p.nombre)}</b><div class="mu">${esc(p.email)} · ${m.length} clientes · ${m.filter(c=>!ina(c)).length} activos</div><div class="row" style="margin:8px 0"><select data-to="${esc(p.uid)}">${op(p.uid)}</select><button class="s" data-mv="${esc(p.uid)}">Pasar sus clientes</button></div><button class="x" data-rp="${esc(p.uid)}">Quitar acceso</button></div>`}).join("")||'<p class="mu">Todavía no hay profes.</p>';
-  if(arc.length)$("#pl").innerHTML+='<div class="mu" style="margin:14px 0 6px">Sin acceso (sus clientes siguen guardados)</div>'+arc.map(p=>`<div class="cd"><b>${esc(p.nombre)}</b><div class="mu">${esc(p.email)} · ${cx.filter(c=>c.prof===p.uid).length} clientes</div><button class="s" data-ra="${esc(p.uid)}">Reactivar</button></div>`).join("")};
+function profsView(){rst();let ps=[],cx=[],calc=0;
+ app.innerHTML=`<button class="s" id="bk">← Clientes</button>`+hdr("Profes","Acceso para crear rutinas")+`<div class="cd"><b>Nuevo profe</b><input id="pn1" placeholder="Nombre"><input id="pe1" type="email" placeholder="Email"><input id="pw1" placeholder="Contraseña (mínimo 6)"><button id="mk">Crear profe</button><div id="mr"></div></div><button class="s" id="cc">Calcular cantidad de clientes</button><div id="pl"></div>`;
+ const paintP=()=>{const me=auth.currentUser.uid,act=ps.filter(p=>!p.arch),arc=ps.filter(p=>p.arch),op=ex=>[{uid:me,nombre:"Administrador (yo)"},...act].filter(x=>x.uid!==ex).map(x=>`<option value="${esc(x.uid)}">${esc(x.nombre)}</option>`).join(""),cn=p=>{if(!calc)return"";const m=cx.filter(c=>c.prof===p.uid);return " · "+m.length+" clientes · "+m.filter(c=>!ina(c)).length+" activos"};
+  $("#pl").innerHTML=act.map(p=>`<div class="cd"><b>${esc(p.nombre)}</b><div class="mu">${esc(p.email)}${cn(p)}</div><div class="row" style="margin:8px 0"><select data-to="${esc(p.uid)}">${op(p.uid)}</select><button class="s" data-mv="${esc(p.uid)}">Pasar sus clientes</button></div><button class="s" data-mt="${esc(p.uid)}">Copiar sus plantillas</button> <button class="x" data-rp="${esc(p.uid)}">Quitar acceso</button></div>`).join("")||'<p class="mu">Todavía no hay profes.</p>';
+  if(arc.length)$("#pl").innerHTML+='<div class="mu" style="margin:14px 0 6px">Sin acceso (sus clientes siguen guardados)</div>'+arc.map(p=>`<div class="cd"><b>${esc(p.nombre)}</b><div class="mu">${esc(p.email)}${cn(p)}</div><div class="row" style="margin:8px 0"><select data-to="${esc(p.uid)}">${op(p.uid)}</select><button class="s" data-mt="${esc(p.uid)}">Copiar sus plantillas</button></div><button class="s" data-ra="${esc(p.uid)}">Reactivar</button></div>`).join("")};
  sub(db.collection("profs").onSnapshot(s=>{ps=s.docs.map(d=>d.data());paintP()}));
- sub(db.collection("clients").onSnapshot(s=>{cx=s.docs.map(d=>d.data());paintP()},()=>{}));
  const tr=e=>({"auth/weak-password":"La contraseña es muy débil (mínimo 6 caracteres).","auth/invalid-email":"Ese email no es válido.","auth/network-request-failed":"Sin conexión. Probá de nuevo."})[e.code]||e.message;
  app.onclick=async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
   try{
   if(b.id==="bk")return coachHome();
+  if(b.id==="cc"){b.textContent="Calculando…";cx=(await db.collection("clients").get()).docs.map(d=>d.data());calc=1;paintP();b.textContent="Actualizar cantidades"}
   if(d.mv){const sel=app.querySelector(`select[data-to="${d.mv}"]`),to=sel.value,nm=to===auth.currentUser.uid?PN:sel.options[sel.selectedIndex].text,s=await db.collection("clients").where("prof","==",d.mv).get();
    if(!s.size)return toast("Ese profe no tiene clientes");
    if(delArm!=="mv"+d.mv){delArm="mv"+d.mv;b.textContent="¿Pasar "+s.size+" a "+nm+"? Tocá otra vez";return}
    delArm=null;const ds=s.docs;for(let i=0;i<ds.length;i+=400){const bt=db.batch();ds.slice(i,i+400).forEach(x=>bt.update(x.ref,{prof:to,profNombre:nm}));await bt.commit()}toast("Pasados "+ds.length+" clientes a "+nm);b.textContent="Pasar sus clientes"}
+  if(d.mt){const sel=app.querySelector(`select[data-to="${d.mt}"]`),to=sel.value,nm=to===auth.currentUser.uid?PN:sel.options[sel.selectedIndex].text,s=await db.collection("profs").doc(d.mt).collection("plantillas").get();
+   if(!s.size)return toast("Ese profe no tiene plantillas");
+   if(delArm!=="mt"+d.mt){delArm="mt"+d.mt;b.textContent="¿Copiar "+s.size+" a "+nm+"? Tocá otra vez";return}
+   delArm=null;const bt=db.batch();s.docs.forEach(x=>bt.set(db.collection("profs").doc(to).collection("plantillas").doc(),x.data()));await bt.commit();toast("Copiadas "+s.size+" plantillas a "+nm);b.textContent="Copiar sus plantillas"}
   if(d.rp){const n=(await db.collection("clients").where("prof","==",d.rp).get()).size;if(delArm!==d.rp){delArm=d.rp;b.textContent=n?"Tiene "+n+" clientes · tocá otra vez para quitar igual":"¿Seguro? Tocá otra vez";return}
    delArm=null;const p=ps.find(x=>x.uid===d.rp&&!x.arch),bt=db.batch();bt.set(db.collection("profs").doc("arch_"+d.rp),{uid:d.rp,nombre:p.nombre,email:p.email,arch:true,t:Date.now()});bt.delete(db.collection("profs").doc(d.rp));await bt.commit();toast("Acceso quitado. Lo podés reactivar cuando quieras")}
   if(d.ra){const p=ps.find(x=>x.uid===d.ra&&x.arch),bt=db.batch();bt.set(db.collection("profs").doc(d.ra),{uid:d.ra,nombre:p.nombre,email:p.email,t:Date.now()});bt.delete(db.collection("profs").doc("arch_"+d.ra));await bt.commit();toast("Profe reactivado")}
@@ -171,6 +176,11 @@ function parse(tx){const days=[];let d=null;const nd=t=>{d={t,ex:[]};days.push(d
  return days.filter(x=>x.ex.length)}
 const cpOpts=q=>{const v=nz(q),L=CL.filter(c=>c.id!==cur.id&&c.days&&c.days.some(d=>d.ex.length)&&(!v||nz((c.nombre||"")+" "+(c.apodo||"")).includes(v))).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
  return L.map(c=>`<option value="${esc(c.id)}">${esc(c.nombre)}${c.apodo?" ("+esc(c.apodo)+")":""}</option>`).join("")||'<option value="">Sin resultados</option>'};
+const tref=()=>db.collection("profs").doc(auth.currentUser.uid).collection("plantillas");
+const tsan=ds=>ds.filter(d=>d.ex.length).map(d=>({t:d.t,ex:d.ex.map(x=>({n:x.n||"",s:x.s||"",r:x.r||"",p:x.p||"",v:x.v||""}))}));
+const fillT=()=>{const el=$("#aw_p");if(el)el.innerHTML=MYT.slice().sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre))).map(t=>`<option value="${esc(t.id)}">${esc(t.nombre)}</option>`).join("")||'<option value="">Todavía no tenés plantillas</option>'};
+const loadT=()=>tref().get().then(s=>{MYT=s.docs.map(d=>({...d.data(),id:d.id}));fillT()}).catch(e=>toast(e.message));
+const putT=async(nm,days)=>{const ex=MYT.find(x=>String(x.nombre).toLowerCase()===nm.toLowerCase()),id=ex?ex.id:tref().doc().id;await tref().doc(id).set({nombre:nm,days,t:Date.now()});return !!ex};
 const arpHtml=()=>`<div class="cd"><b>✨ Armar rutina</b><div class="mu">Es una rutina base: revisala y editala antes de enviarla. Con lesiones (disco, menisco), pedí la indicación del médico o kinesiólogo.</div>
  <label>Días por semana</label><select id="aw_d">${[2,3,4,5,6].map(n=>`<option${n===3?" selected":""}>${n}</option>`).join("")}</select>
  <label>Objetivo</label><select id="aw_o"><option value="g">Glúteos y piernas</option><option value="e">Espalda</option><option value="s">Tren superior</option><option value="f">Cuerpo completo</option></select>
@@ -180,11 +190,16 @@ const arpHtml=()=>`<div class="cd"><b>✨ Armar rutina</b><div class="mu">Es una
  <label style="display:block;margin-top:10px">O pegá una rutina (de Claude u otro chat)</label><textarea id="aw_t" rows="6" placeholder="Día 1 - Piernas&#10;Sentadilla | 4 | 10 | 60s"></textarea>
  <button class="s" id="aw_i">Pegar rutina</button>
  <label style="display:block;margin-top:10px">O copiá la rutina de otro cliente</label><input id="aw_q" placeholder="Buscar cliente" autocomplete="off"><select id="aw_c">${cpOpts("")}</select><button class="s" id="aw_k">Copiar rutina</button>
+ <label style="display:block;margin-top:10px">📁 Mis plantillas (el administrador también puede verlas)</label><select id="aw_p"><option value="">Cargando…</option></select>
+ <div><button class="s" id="aw_pu">Usar</button> <button class="s" id="aw_pr">Renombrar</button> <button class="x" id="aw_pd">Borrar</button></div>
+ <input id="aw_pn" placeholder="Nombre para guardar esta rutina como plantilla" autocomplete="off"><button class="s" id="aw_ps">Guardar como plantilla</button>
+ <div class="mu">Para llevarte tus plantillas: descargalas. Para importarlas, pegá el archivo en el cuadro de arriba.</div>
+ <div><button class="s" id="aw_pb">Descargar mis plantillas</button> <button class="s" id="aw_pi">Importar plantillas</button></div>
  <div><button class="s" id="aw_x">Cerrar</button></div></div>`;
 function editor(id){rst();logs=[];msgs=[];const ref=db.collection("clients").doc(id);
  Promise.all([ref.get(),ROLE==="admin"?db.collection("profs").get().then(q=>{PL=q.docs.map(d=>d.data())}).catch(()=>{}):0]).then(([s])=>{cur=s.exists?{...s.data()}:{nombre:"",cel:"",objetivo:"",pin:"",profNombre:PN,days:[{t:"Día 1",ex:[]}],desde:Date.now()};cur.id=id;
   sub(ref.collection("logs").orderBy("t","desc").limit(50).onSnapshot(s=>{logs=s.docs.map(d=>({...d.data(),id:d.id}));paintLg()},()=>{}));
-  sub(ref.collection("msgs").orderBy("t").onSnapshot(s=>{msgs=s.docs.map(d=>d.data());paintM("p");const l=msgs[msgs.length-1];
+  sub(ref.collection("msgs").orderBy("t","desc").limit(100).onSnapshot(s=>{msgs=s.docs.map(d=>d.data()).reverse();paintM("p");const l=msgs[msgs.length-1];
    if(l&&l.from==="c"&&l.t>(cur.leidoP||0)){cur.leidoP=Date.now();ref.update({leidoP:cur.leidoP}).catch(()=>{})}},()=>{}));
   draw(ref)}).catch(e=>toast(e.message))}
 function paintLg(){const el=$("#lg");if(el)el.innerHTML=logs.map(l=>`<div class="row" style="justify-content:space-between;margin:2px 0"><span class="mu">${new Date(l.t).toLocaleDateString("es-AR")} · ${esc(l.n)}: ${esc(l.kg||"-")} kg × ${esc(l.reps||"-")}</span><button class="x" data-dl="${esc(l.id)}" style="padding:2px 10px;margin:0" aria-label="Borrar registro">🗑</button></div>`).join("")||'<div class="mu">Todavía no cargó pesos.</div>'}
@@ -210,11 +225,17 @@ function draw(ref){
   try{
   if(b.id==="bk")return coachHome();
   if(d.dl){if(delArm!=="dl"+d.dl){delArm="dl"+d.dl;b.textContent="¿Borrar?";return}delArm=null;await ref.collection("logs").doc(d.dl).delete();toast("Registro borrado");return}
-  if(b.id==="ar"){$("#arp").innerHTML=arpHtml();return}
+  if(b.id==="ar"){$("#arp").innerHTML=arpHtml();loadT();return}
   if(b.id==="aw_x"){$("#arp").innerHTML="";return}
   if(b.id==="aw_g")return add(gen(+$("#aw_d").value,$("#aw_o").value,+$("#aw_n").value,$("#aw_l").value));
   if(b.id==="aw_i"){const r=parse($("#aw_t").value);if(!r.length)return toast("No encontré ejercicios. Revisá el formato.");return add(r)}
   if(b.id==="aw_k"){const c=CL.find(x=>x.id===$("#aw_c").value);if(!c)return toast("Elegí un cliente");return add(JSON.parse(JSON.stringify(c.days)))}
+  if(b.id==="aw_pu"){const p=MYT.find(x=>x.id===$("#aw_p").value);if(!p)return toast("Elegí una plantilla");return add(JSON.parse(JSON.stringify(p.days)))}
+  if(b.id==="aw_ps"){const nm=$("#aw_pn").value.trim();if(!nm)return toast("Escribí un nombre para la plantilla");const ds=tsan(cur.days);if(!ds.length)return toast("La rutina no tiene ejercicios");const up=await putT(nm,ds);toast(up?"Plantilla actualizada":"Plantilla guardada");loadT();return}
+  if(b.id==="aw_pr"){const p=MYT.find(x=>x.id===$("#aw_p").value);if(!p)return toast("Elegí una plantilla");const nn=(prompt("Nuevo nombre",p.nombre)||"").trim();if(!nn)return;await tref().doc(p.id).update({nombre:nn});toast("Renombrada");loadT();return}
+  if(b.id==="aw_pd"){const id=$("#aw_p").value;if(!id)return toast("Elegí una plantilla");if(delArm!=="pd"){delArm="pd";b.textContent="¿Seguro? Tocá otra vez";return}delArm=null;b.textContent="Borrar";await tref().doc(id).delete();toast("Plantilla borrada");loadT();return}
+  if(b.id==="aw_pb"){if(!MYT.length)return toast("No tenés plantillas guardadas");const txt=MYT.map(p=>"### PLANTILLA: "+p.nombre+"\n"+p.days.map(d=>d.t+"\n"+d.ex.map(x=>[x.n,x.s,x.r,x.p,x.v].join(" | ")).join("\n")).join("\n")).join("\n\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain"}));a.download="mis-plantillas.txt";a.click();return}
+  if(b.id==="aw_pi"){const parts=$("#aw_t").value.split(/^###\s*PLANTILLA:\s*/mi).slice(1);let n=0;for(const pt of parts){const i=pt.indexOf("\n"),nm=(i<0?pt:pt.slice(0,i)).trim(),ds=parse(i<0?"":pt.slice(i+1));if(nm&&ds.length){await putT(nm,tsan(ds));n++;await loadT()}}toast(n?"Importé "+n+" plantillas":"No encontré plantillas. Cada una tiene que empezar con ### PLANTILLA: nombre");return}
   if(d.ins||d.up||d.dn){const[i,j]=(d.ins||d.up||d.dn).split(",").map(Number),a=cur.days[i].ex;let k=j;
    if(d.ins){a.splice(j+1,0,{n:"",s:"",r:"",p:"",v:""});k=j+1}
    else if(d.up){if(j<1)return;[a[j],a[j-1]]=[a[j-1],a[j]];k=j-1}
@@ -242,8 +263,8 @@ function clientView(id){rst();logs=[];msgs=[];selDay=-1;G={};let tch=false;const
   cur=s.data();cur.id=id;const cl=isCoach(auth.currentUser);
   if(!tch&&!cl){tch=true;if(Date.now()-(cur.visto||0)>6*36e5)ref.update({visto:Date.now()}).catch(()=>{})}
   if(cur.pin&&unl!==id&&!cl)pinView();else cview(ref)},e=>app.innerHTML="<p>No se pudo cargar: "+esc(e.message)+"</p>"));
- sub(ref.collection("logs").orderBy("t","desc").limit(300).onSnapshot(s=>{logs=s.docs.map(d=>({...d.data(),id:d.id}));paintLast()},()=>{}));
- sub(ref.collection("msgs").orderBy("t").onSnapshot(s=>{msgs=s.docs.map(d=>d.data());paintM("c")},()=>{}))}
+ sub(ref.collection("logs").orderBy("t","desc").limit(200).onSnapshot(s=>{logs=s.docs.map(d=>({...d.data(),id:d.id}));paintLast()},()=>{}));
+ sub(ref.collection("msgs").orderBy("t","desc").limit(50).onSnapshot(s=>{msgs=s.docs.map(d=>d.data()).reverse();paintM("c")},()=>{}))}
 function pinView(){app.onclick=app.oninput=app.onchange=null;
  app.innerHTML=big("Tu rutina","Profe: "+esc(cur.profNombre||""))+`<div class="cd"><p class="mu">Ingresá el PIN que te dio tu profe.</p><input id="pn" inputmode="numeric" placeholder="PIN"><button id="pg">Entrar</button><div id="pe" class="mu" style="color:var(--rd)"></div></div>`;
  const go=()=>{if($("#pn").value.trim()===String(cur.pin)){unl=cur.id;cview(db.collection("clients").doc(cur.id))}else $("#pe").textContent="PIN incorrecto"};
